@@ -10,6 +10,3 @@
 [submodule "submodules/quaternion-utils/third_party/glm"]
 	path = submodules/quaternion-utils/third_party/glm
 	url = https://github.com/g-truc/glm.git
-[submodule "submodules/DA3"]
-	path = submodules/DA3
-	url = https://github.com/MCHU-1999/DA3.git
