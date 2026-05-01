@@ -1,0 +1,3 @@
+[submodule "submodules/Metric3D"]
+	path = submodules/Metric3D
+	url = https://github.com/cherubicXN/Metric3D.git
