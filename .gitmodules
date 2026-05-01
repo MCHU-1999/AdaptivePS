@@ -1,3 +1,6 @@
 [submodule "submodules/Metric3D"]
 	path = submodules/Metric3D
 	url = https://github.com/cherubicXN/Metric3D.git
+[submodule "submodules/diff-rect-rasterization"]
+	path = submodules/diff-rect-rasterization
+	url = https://github.com/ant-research/diff-rect-rasterization.git
