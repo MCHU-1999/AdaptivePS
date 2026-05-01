@@ -4,3 +4,6 @@
 [submodule "submodules/diff-rect-rasterization"]
 	path = submodules/diff-rect-rasterization
 	url = https://github.com/ant-research/diff-rect-rasterization.git
+[submodule "submodules/vggt"]
+	path = submodules/vggt
+	url = https://github.com/facebookresearch/vggt.git
