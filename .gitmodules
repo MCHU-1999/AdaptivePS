@@ -7,3 +7,6 @@
 [submodule "submodules/vggt"]
 	path = submodules/vggt
 	url = https://github.com/facebookresearch/vggt.git
+[submodule "submodules/quaternion-utils/third_party/glm"]
+	path = submodules/quaternion-utils/third_party/glm
+	url = https://github.com/g-truc/glm.git
