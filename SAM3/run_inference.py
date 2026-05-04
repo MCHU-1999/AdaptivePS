@@ -9,20 +9,20 @@ SCENES = [
     {
         "exp_name": "Barn",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn",
-        "bldg_prompt": "that building in the center of frame",
+        "bldg_prompt": "house in front",
         "gnd_prompt": "every ground surfaces (sand, earth, grass, water, road, pavement)"
     },
     # DTU Datasets
     {
         "exp_name": "dtu-scan24",
         "data_path": f"{MY_STORAGE}/DTU/scan24",
-        "bldg_prompt": "that building in the center of frame",
+        "bldg_prompt": "the buildings in foreground",
         "gnd_prompt": "white table surface"
     },
     {
         "exp_name": "dtu-scan40",
         "data_path": f"{MY_STORAGE}/DTU/scan40",
-        "bldg_prompt": "that building in the center of frame",
+        "bldg_prompt": "the things in foreground",
         "gnd_prompt": "white table surface"
     },
     # Pexels Datssets
