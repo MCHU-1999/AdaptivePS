@@ -65,7 +65,7 @@ if __name__ == "__main__":
         print(f"Data path: {data_path}")
         
         cmd = [
-            "python", "run_da3_w_masks.py",
+            "python", "DA3/inference_w_masks.py",
             "--data_dir", data_path
         ]
         
