@@ -2,7 +2,22 @@ import subprocess, sys, os
 from DA3.inference import da3_inference_a_scene
 from SAM3.inference import set_hf_token_from_txt, sam_inference_a_scene
 from run_DA3FG import run_planarsplatting
+from contextlib import contextmanager
+from loguru import logger
 
+@contextmanager
+def stage_file_logger(scene_data_path: str, log_name: str):
+    # os.makedirs(scene_data_path, exist_ok=True)
+    log_file = os.path.join(scene_data_path, log_name)
+    sink_id = logger.add(
+        log_file,
+        format="{time:YYYY-MM-DD HH:mm:ss} {file}:{line} {level} {message}",
+        level="DEBUG"
+    )
+    try:
+        yield
+    finally:
+        logger.remove(sink_id)
 
 def run_as_subprocess(script_name: str, scene: dict, extra_args: None|list[str] = None):
     if not os.path.exists(script_name):
@@ -122,11 +137,13 @@ if __name__ == "__main__":
 
     # Starts here
     for scene in SCENES:
-        ## SAM3 ====================
-        sam_inference_a_scene(scene)
+        # SAM3 -> scene['data_path']/sam3.log
+        with stage_file_logger(scene["data_path"], "sam3.log"):
+            sam_inference_a_scene(scene)
 
-        ## DA3 ====================
-        da3_inference_a_scene(scene)
+        # DA3 -> scene['data_path']/da3.log
+        with stage_file_logger(scene["data_path"], "da3.log"):
+            da3_inference_a_scene(scene)
 
         ## PlanarSplatting ====================
         run_planarsplatting(

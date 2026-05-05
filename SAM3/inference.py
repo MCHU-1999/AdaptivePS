@@ -150,7 +150,7 @@ def save_masks_by_frame_index(outputs_per_frame, frame_dir, output_root_dir, mas
     return saved, no_mask, out_dir
 
 def sam_inference_a_scene(scene):
-    logger.info(f"\nInference on scene: {scene['exp_name']}")
+    logger.info(f"SAM Inference on scene: {scene['exp_name']}")
     frame_dir = f"{scene['data_path']}/images"
 
     # Building masks

@@ -110,7 +110,7 @@ def read_dataset(data_dir):
     return dataset
 
 def da3_inference_a_scene(scene):
-
+    logger.info(f"DA3 Inference on scene: {scene['exp_name']}")
     data_dir = scene["data_path"]
 
     # Setup model and device
@@ -146,8 +146,6 @@ def da3_inference_a_scene(scene):
         bldg_mask_paths=dataset.bldg_mask_paths,
         gnd_mask_paths=dataset.gnd_mask_paths
     )
-
-    logger.info(f"Running DA3 on scene {scene['exp_name']}")
 
     # # FOR DEBUG
     # # prediction.processed_images : [N, H, W, 3] uint8   array
