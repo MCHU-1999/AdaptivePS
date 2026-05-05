@@ -160,3 +160,43 @@ def da3_inference_a_scene(scene):
     # logger.info(f"intrinsics.shape: {prediction.intrinsics.shape}")
 
     return None
+
+def da3_inference_all_scenes(scenes):
+    # Setup model and device
+    device = torch.device("cuda")
+    model = DepthAnything3.from_pretrained("depth-anything/DA3NESTED-GIANT-LARGE")
+    model = model.to(device=device)
+
+    for scene in scenes:
+        logger.info(f"DA3 Inference on scene: {scene['exp_name']}")
+        data_dir = scene["data_path"]
+        dataset = read_dataset(data_dir)
+
+        # Create synthetic intrinsics for outdoor scene (75° horizontal FOV)
+        K_synthetic = synthesize_intrinsics(dataset.width, dataset.height, fov_deg=75)
+        intrinsics = np.stack([K_synthetic] * dataset.N, axis=0)
+
+        # Export depth data and 3D visualization
+        prediction = model.inference(
+            image=dataset.img_paths_list,
+            extrinsics=None,
+            intrinsics=intrinsics,
+            export_dir=data_dir,
+            export_format="planarsplatting-colmap",
+            process_res=420,
+            # process_res=840,
+            process_res_method="upper_bound_resize",
+            export_kwargs={
+                "planarsplatting": {
+                    "img_name_list": dataset.img_name_list,
+                    "img_res": [dataset.height, dataset.width]
+                }
+            },
+            show_cameras=False,
+            # show_cameras=True,
+            conf_thresh_percentile=40,
+            bldg_mask_paths=dataset.bldg_mask_paths,
+            gnd_mask_paths=dataset.gnd_mask_paths
+        )
+
+    return None
