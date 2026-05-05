@@ -226,27 +226,19 @@ def mask_points_by_bg_depth(
 
             # Observed in image
             obs = z_ok & in_img & valid_pts
-            # Unseen but in front of camera and out of frame: count as BG evidence
+            # Unseen but in front of camera and out of frame
             oof = z_ok & (~in_img) & valid_pts
 
             if (obs.sum() == 0) and (oof.sum() == 0):
                 continue
 
             if obs.sum() > 0:
-                depth_map = view_info.mono_depth.view(H, W)
-                d = depth_map[vv[obs], u[obs]]
-
-                # BG pixel by GT depth definition
-                is_bg = (d <= bg_depth_eps) | (d > depth_trunc)
+                fg_map = view_info.fg_mask.view(H, W).bool()
+                is_bg = ~fg_map[vv[obs], u[obs]]
 
                 obs_idx = torch.where(obs)[0]
                 visible_count[obs_idx] += 1.0
                 bg_count[obs_idx] += is_bg.float()
-
-            # if oof.sum() > 0:
-            #     oof_idx = torch.where(oof)[0]
-            #     visible_count[oof_idx] += 1.0
-            #     bg_count[oof_idx] += 1.0
 
         bg_ratio = bg_count / (visible_count + 1e-6)
         remove = valid_pts & (bg_ratio > max_bg_ratio)
