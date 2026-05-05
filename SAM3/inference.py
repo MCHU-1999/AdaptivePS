@@ -90,22 +90,23 @@ def inference_bldg_video(predictor, scene):
     out = response["outputs"]
 
     # Here we should remove the smaller building in background before propagation
-    if out:
+    if out and "out_binary_masks" in out:
         counts = {}
-        for cur_id, binary_mask in out.items():
+        for idx, binary_mask in enumerate(out["out_binary_masks"]):
+            obj_id = out["out_obj_ids"][idx]
             mask_np = np.asarray(binary_mask)
             mask_np = np.squeeze(mask_np)
-            counts[cur_id] = int((mask_np > 0).sum())
+            counts[obj_id] = int((mask_np > 0).sum())
 
         largest_obj_id = max(counts, key=counts.get)
 
-        for cur_id in out.keys():
-            if cur_id != largest_obj_id:
+        for obj_id in counts.keys():
+            if obj_id != largest_obj_id:
                 predictor.handle_request(
                     request=dict(
                         type="remove_object",
                         session_id=session_id,
-                        obj_id=cur_id,
+                        obj_id=obj_id,
                     )
                 )
 
