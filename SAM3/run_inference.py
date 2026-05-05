@@ -10,7 +10,7 @@ SCENES = [
         "exp_name": "Barn",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn",
         "bldg_prompt": "house in front",
-        "gnd_prompt": "every ground surfaces (sand, earth, grass, water, road, pavement)"
+        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
     },
     # DTU Datasets
     {
@@ -22,57 +22,57 @@ SCENES = [
     {
         "exp_name": "dtu-scan40",
         "data_path": f"{MY_STORAGE}/DTU/scan40",
-        "bldg_prompt": "the things in foreground",
+        "bldg_prompt": "the bricks",
         "gnd_prompt": "white table surface"
     },
     # Pexels Datssets
     {
         "exp_name": "church-cadeby",
         "data_path": f"{MY_STORAGE}/Pexels/church-cadeby",
-        "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": "every ground surfaces (sand, earth, grass, water, road, pavement)"
+        "bldg_prompt": "that stone masonry church building in the center of frame",
+        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
     },
     {
         "exp_name": "church-chesterfield",
         "data_path": f"{MY_STORAGE}/Pexels/church-chesterfield",
-        "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": "every ground surfaces (sand, earth, grass, water, road, pavement)"
+        "bldg_prompt": "that modern black-roofed red brick church building with a spire",
+        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
     },
     {
         "exp_name": "killingbeck-cemetery",
         "data_path": f"{MY_STORAGE}/Pexels/killingbeck-cemetery",
-        "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": "every ground surfaces (sand, earth, grass, water, road, pavement)"
+        "bldg_prompt": "that stone masonry church building in the center of frame",
+        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
     },
     {
         "exp_name": "moskee-haarlem",
         "data_path": f"{MY_STORAGE}/Pexels/moskee-haarlem",
         "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": "every ground surfaces (sand, earth, grass, water, road, pavement)"
+        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
     },
     {
         "exp_name": "tower-court",
         "data_path": f"{MY_STORAGE}/Pexels/tower-court",
         "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": "every ground surfaces (sand, earth, grass, water, road, pavement)"
+        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
     },
     {
         "exp_name": "wotrubakirche",
         "data_path": f"{MY_STORAGE}/Pexels/wotrubakirche",
-        "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": "every ground surfaces (sand, earth, grass, water, road, pavement)"
+        "bldg_prompt": "the modernism concrete building in the center of frame",
+        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
     },
     {
         "exp_name": "elbphilharmonie",
         "data_path": f"{MY_STORAGE}/Pexels/elbphilharmonie",
         "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": "every ground surfaces (sand, earth, grass, water, road, pavement)"
+        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
     },
     {
         "exp_name": "krasna-horka-castle",
         "data_path": f"{MY_STORAGE}/Pexels/krasna-horka-castle",
         "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": "every ground surfaces (sand, earth, grass, water, road, pavement)"
+        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
     }
 ]
 

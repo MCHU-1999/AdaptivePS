@@ -1,139 +1,138 @@
-import subprocess
-import sys
-import os
+import subprocess, sys, os
+from DA3.inference import da3_inference_a_scene
+from SAM3.inference import set_hf_token_from_txt, sam_inference_a_scene
+from run_DA3FG import run_planarsplatting
 
-def run_script(script_name: str, scenes: list[dict], extra_args: None|list[str] = None):
-    print(f"Total scenes to run: {len(scenes)}")
+
+def run_as_subprocess(script_name: str, scene: dict, extra_args: None|list[str] = None):
     if not os.path.exists(script_name):
         print(f"Error: Could not find {script_name}")
         return
 
-    for i, scene in enumerate(scenes):
-        print(f"Running script: {script_name}\nExperiment: {scene['exp_name']}")
+    print(f"Running script: {script_name}\nExperiment: {scene['exp_name']}")
+    # Construct the command
+    cmd = [sys.executable, script_name]
+    for key, value in scene.items():
+        if value is None:
+            continue
+        cmd.extend([f"--{key}", str(value)])
+    if extra_args:
+        cmd += extra_args
 
-        # Construct the command
-        cmd = [sys.executable, script_name]
-        for key, value in scene.items():
-            if value is None:
-                continue
-            cmd.extend([f"--{key}", str(value)])
-        if extra_args:
-            cmd += extra_args
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"!!! Experiment {scene['exp_name']} failed with error code {e.returncode} !!!")
 
-        try:
-            subprocess.run(cmd, check=True)
-        except subprocess.CalledProcessError as e:
-            print(f"!!! Experiment {scene['exp_name']} failed with error code {e.returncode} !!!")
+def run_DA3FG(scene: dict, extra_args: None|list[str] = None):
+    scene_copy = scene.copy()
+    if 'init_mesh' in scene_copy:
+        scene_copy.pop('init_mesh')
+    if 'geo_data_path' in scene_copy:
+        scene_copy.pop('geo_data_path')
+    if 'bldg_prompt' in scene_copy:
+        scene_copy.pop('bldg_prompt')
+    if 'gnd_prompt' in scene_copy:
+        scene_copy.pop('gnd_prompt')
 
-def run_vanilla(scenes: list[dict], extra_args: None|list[str] = None):
-    scenes_copy = [s.copy() for s in scenes]
-    for scene in scenes_copy:
-        if 'init_mesh' in scene:
-            scene.pop('init_mesh')
-        if 'geo_data_path' in scene:
-            scene.pop('geo_data_path')
-        if 'mask' in scene:
-            scene.pop('mask')
-    
-    run_script("run_vanilla.py", scenes_copy, extra_args)
+    run_as_subprocess("run_DA3FG.py", scene_copy, extra_args)
 
-def run_DA3(scenes: list[dict], extra_args: None|list[str] = None):
-    scenes_copy = [s.copy() for s in scenes]
-    for scene in scenes_copy:
-        if 'init_mesh' in scene:
-            scene.pop('init_mesh')
-        if 'geo_data_path' in scene:
-            scene.pop('geo_data_path')
-        if 'mask' in scene:
-            scene.pop('mask')
 
-    run_script("run_DA3.py", scenes_copy, extra_args)
-
-def run_DA3FG(scenes: list[dict], extra_args: None|list[str] = None):
-    scenes_copy = [s.copy() for s in scenes]
-    for scene in scenes_copy:
-        if 'init_mesh' in scene:
-            scene.pop('init_mesh')
-        if 'geo_data_path' in scene:
-            scene.pop('geo_data_path')
-
-    run_script("run_DA3FG.py", scenes_copy, extra_args)
-
+# CONST
+MY_STORAGE = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
+SCENES = [
+    # TnT Datasets
+    {
+        "exp_name": "Barn",
+        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn",
+        "bldg_prompt": "house in front",
+        "gnd_prompt": ["ground", "grass", "pavement"]
+    },
+    # DTU Datasets
+    {
+        "exp_name": "dtu-scan24",
+        "data_path": f"{MY_STORAGE}/DTU/scan24",
+        "bldg_prompt": "the buildings in foreground",
+        "gnd_prompt": "white table surface"
+    },
+    {
+        "exp_name": "dtu-scan40",
+        "data_path": f"{MY_STORAGE}/DTU/scan40",
+        "bldg_prompt": "the bricks",
+        "gnd_prompt": "white table surface"
+    },
+    # Pexels Datssets
+    {
+        "exp_name": "church-cadeby",
+        "data_path": f"{MY_STORAGE}/Pexels/church-cadeby",
+        "bldg_prompt": "that stone masonry church building",
+        "gnd_prompt": ["ground", "grass", "pavement"]
+    },
+    {
+        "exp_name": "church-chesterfield",
+        "data_path": f"{MY_STORAGE}/Pexels/church-chesterfield",
+        "bldg_prompt": "that modern black-roofed red-brick church building with a spire",
+        "gnd_prompt": ["ground", "grass", "road", "pavement"]
+    },
+    {
+        "exp_name": "killingbeck-cemetery",
+        "data_path": f"{MY_STORAGE}/Pexels/killingbeck-cemetery",
+        "bldg_prompt": "that stone masonry church building",
+        "gnd_prompt": ["ground", "grass", "road", "pavement"]
+    },
+    {
+        "exp_name": "moskee-haarlem",
+        "data_path": f"{MY_STORAGE}/Pexels/moskee-haarlem",
+        "bldg_prompt": "that building in the center of frame",
+        "gnd_prompt": ["ground", "water", "grass", "road", "pavement"]
+    },
+    {
+        "exp_name": "tower-court",
+        "data_path": f"{MY_STORAGE}/Pexels/tower-court",
+        "bldg_prompt": "that historic red-brick clock-tower building",
+        "gnd_prompt": ["ground", "grass", "road", "pavement"]
+    },
+    {
+        "exp_name": "wotrubakirche",
+        "data_path": f"{MY_STORAGE}/Pexels/wotrubakirche",
+        "bldg_prompt": "the modernism concrete building",
+        "gnd_prompt": ["ground", "grass", "road", "pavement"]
+    },
+    {
+        "exp_name": "elbphilharmonie",
+        "data_path": f"{MY_STORAGE}/Pexels/elbphilharmonie",
+        "bldg_prompt": "Elbphilharmonie, that modernism red-brick and glass building",
+        "gnd_prompt": ["ground", "water", "road", "pavement"]
+    },
+    {
+        "exp_name": "krasna-horka-castle",
+        "data_path": f"{MY_STORAGE}/Pexels/krasna-horka-castle",
+        "bldg_prompt": "that castle building",
+        "gnd_prompt": ["ground", "grass", "pavement"]
+    }
+]
 
 # ================================================================================
 # Main Function
 # ================================================================================
 if __name__ == "__main__":
-    # CONST
-    MY_STORAGE = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
-    SCENES = [
-        # TnT Datasets
-        {
-            "exp_name": "Barn",
-            "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn",
-            "mask": "bldg_masks"
-        },
-        # DTU Datasets
-        {
-            "exp_name": "dtu-scan24",
-            "data_path": f"{MY_STORAGE}/DTU/scan24",
-            "mask": "bldg_masks"
-        },
-        {
-            "exp_name": "dtu-scan40",
-            "data_path": f"{MY_STORAGE}/DTU/scan40",
-            "mask": "bldg_masks"
-        },
-        # Pexel Datasets
-        {
-            "exp_name": "church-cadeby",
-            "data_path": f"{MY_STORAGE}/Pexels/church-cadeby",
-            "mask": "bldg_masks"
-        },
-        {
-            "exp_name": "church-chesterfield",
-            "data_path": f"{MY_STORAGE}/Pexels/church-chesterfield",
-            "mask": "bldg_masks"
-        },
-        {
-            "exp_name": "killingbeck-cemetery",
-            "data_path": f"{MY_STORAGE}/Pexels/killingbeck-cemetery",
-            "mask": "bldg_masks"
-        },
-        {
-            "exp_name": "moskee-haarlem",
-            "data_path": f"{MY_STORAGE}/Pexels/moskee-haarlem",
-            "mask": "bldg_masks"
-        },
-        {
-            "exp_name": "tower-court",
-            "data_path": f"{MY_STORAGE}/Pexels/tower-court",
-            "mask": "bldg_masks"
-        },
-        {
-            "exp_name": "wotrubakirche",
-            "data_path": f"{MY_STORAGE}/Pexels/wotrubakirche",
-            "mask": "bldg_masks"
-        },
-        {
-            "exp_name": "elbphilharmonie",
-            "data_path": f"{MY_STORAGE}/Pexels/elbphilharmonie",
-            "mask": "bldg_masks"
-        },
-        {
-            "exp_name": "krasna-horka-castle",
-            "data_path": f"{MY_STORAGE}/Pexels/krasna-horka-castle",
-            "mask": "bldg_masks"
-        }
-    ]
+    # Set HF token
+    token_path = os.path.join(os.path.dirname(__file__), "SAM3", "hf_token.txt")
+    set_hf_token_from_txt(token_path)
 
     # Starts here
-    # Capture any extra arguments passed to this script (like --data_path) to forward them
-    extra_args = sys.argv[1:]
+    for scene in SCENES:
+        ## SAM3 ====================
+        sam_inference_a_scene(scene)
 
-    ## ==================== DA3FG
-    this_extra = [
-        '--out_path', 'A3_progress/DA3FG2_split',
-        '--conf_path', 'configs/DA3FG++big.conf'
-    ]
-    run_DA3FG(SCENES, this_extra)
+        ## DA3 ====================
+        da3_inference_a_scene(scene)
+
+        ## PlanarSplatting ====================
+        run_planarsplatting(
+            data_path=scene['data_path'],
+            exp_name=scene['exp_name'],
+            out_path="A3_progress/DA3FG2_split",
+            conf_path="configs/DA3FG++big.conf",
+            mask="bldg_masks"
+        )

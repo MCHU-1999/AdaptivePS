@@ -31,13 +31,17 @@ def propagate_in_video(predictor, session_id):
 
     return outputs_per_frame
 
-def run_sequence_demo(resource_path: str, prompt: str):
+def run_sequence_demo(resource_path: str, prompt):
     """
     Run sequence/video SAM3 inference.
 
     resource_path can be:
     - a folder of JPEG frames
     - an MP4 file
+
+    `prompt` can be a single string or a list of strings. When multiple prompts
+    are provided, each prompt will be added to the session (useful to select
+    different objects within the same mask pass).
     """
     predictor = build_sam3_video_predictor()
 
@@ -49,17 +53,21 @@ def run_sequence_demo(resource_path: str, prompt: str):
     )
     session_id = start_response["session_id"]
 
-    _ = predictor.handle_request(
-        request={
-            "type": "add_prompt",
-            "session_id": session_id,
-            "frame_index": 0,
-            "text": prompt,
-        }
-    )
+    # accept either a single prompt string or an iterable of prompt strings
+    prompts = prompt if isinstance(prompt, (list, tuple)) else [prompt]
+    for p in prompts:
+        _ = predictor.handle_request(
+            request={
+                "type": "add_prompt",
+                "session_id": session_id,
+                "frame_index": 0,
+                "text": p,
+            }
+        )
 
     outputs_per_frame = propagate_in_video(predictor, session_id)
-    print(f"[sequence] path={resource_path} prompt='{prompt}' -> {len(outputs_per_frame)} frames")
+    prompt_str = prompt if isinstance(prompt, str) else ",".join(prompts)
+    print(f"[sequence] path={resource_path} prompt={prompt_str} -> {len(outputs_per_frame)} frames")
     
     outputs_per_frame = prepare_masks_for_visualization(outputs_per_frame)
 
@@ -73,7 +81,6 @@ def run_sequence_demo(resource_path: str, prompt: str):
     )
 
     return outputs_per_frame
-
 
 
 def set_hf_token_from_txt(filepath="./hf_token.txt"):
@@ -121,16 +128,17 @@ def save_masks_by_frame_index(outputs_per_frame, frame_dir, output_root_dir, mas
         img_res = (img.height, img.width)
 
     saved = 0
+    no_mask = 0
     # .items() preserves insertion order in Python 3.7+
     for i, (frame_idx, obj_dict) in enumerate(outputs_per_frame.items()):
-        
         if obj_dict:
             # mask_stack = np.stack([to_numpy_mask(mask) for mask in obj_dict.values()], axis=0)
             mask_stack = np.stack(list(obj_dict.values()), axis=0)
             combined_mask = np.any(mask_stack > 0, axis=0)
         else:
-            logger.warning("Cannot find obj_dict, exporting all 0 masks.")
-            combined_mask = np.zeros(img_res, dtype=bool)
+            # logger.warning("Cannot find obj_dict, exporting all 1 masks.")
+            combined_mask = np.ones(img_res, dtype=bool)
+            no_mask += 1
 
         # Map the current iteration to the filename
         out_name = frame_files[i]
@@ -139,19 +147,31 @@ def save_masks_by_frame_index(outputs_per_frame, frame_dir, output_root_dir, mas
         Image.fromarray((combined_mask.astype(np.uint8) * 255), mode="L").save(out_path)
         saved += 1
 
-    return saved, out_dir
+    return saved, no_mask, out_dir
 
-def inference_a_scene(scenes, mask_dir_name):
-    for scene in scenes:
-        frame_dir = f"{scene['data_path']}/images"
-        outputs_per_frame = run_sequence_demo(frame_dir, scene['prompt'])
-        saved, out_dir = save_masks_by_frame_index(
-            outputs_per_frame,
-            frame_dir,
-            scene['data_path'],
-            mask_dir_name,
-        )
-        logger.info(f"{scene['exp_name']}: saved {saved} masks to {out_dir}")
+def sam_inference_a_scene(scene):
+    logger.info(f"\nInference on scene: {scene['exp_name']}")
+    frame_dir = f"{scene['data_path']}/images"
+
+    # Building masks
+    outputs_per_frame = run_sequence_demo(frame_dir, scene['bldg_prompt'])
+    saved, no_mask, out_dir = save_masks_by_frame_index(
+        outputs_per_frame,
+        frame_dir,
+        scene['data_path'],
+        'bldg_masks',
+    )
+    logger.info(f"{scene['exp_name']}: saved {saved} masks, {no_mask} of them are empty")
+
+    # Ground masks
+    outputs_per_frame = run_sequence_demo(frame_dir, scene['gnd_prompt'])
+    saved, no_mask, out_dir = save_masks_by_frame_index(
+        outputs_per_frame,
+        frame_dir,
+        scene['data_path'],
+        'gnd_masks',
+    )
+    logger.info(f"{scene['exp_name']}: saved {saved} masks, {no_mask} of them are empty")
 
 def inference_bd_gnd(scenes):
     for scene in scenes:
@@ -160,20 +180,20 @@ def inference_bd_gnd(scenes):
 
         # Building masks
         outputs_per_frame = run_sequence_demo(frame_dir, scene['bldg_prompt'])
-        saved, out_dir = save_masks_by_frame_index(
+        saved, no_mask, out_dir = save_masks_by_frame_index(
             outputs_per_frame,
             frame_dir,
             scene['data_path'],
             'bldg_masks',
         )
-        logger.info(f"{scene['exp_name']}: saved {saved} masks to {out_dir}")
+        logger.info(f"{scene['exp_name']}: saved {saved} masks, {no_mask} of them are empty")
 
         # Ground masks
         outputs_per_frame = run_sequence_demo(frame_dir, scene['gnd_prompt'])
-        saved, out_dir = save_masks_by_frame_index(
+        saved, no_mask, out_dir = save_masks_by_frame_index(
             outputs_per_frame,
             frame_dir,
             scene['data_path'],
             'gnd_masks',
         )
-        logger.info(f"{scene['exp_name']}: saved {saved} masks to {out_dir}")
+        logger.info(f"{scene['exp_name']}: saved {saved} masks, {no_mask} of them are empty")
