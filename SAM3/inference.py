@@ -246,7 +246,6 @@ def sam_inference_all_scenes(scenes):
 
         # Building masks
         combined_mask_per_frame = inference_bldg_video(predictor, scene)
-        combined_mask_per_frame = prepare_masks_for_visualization(combined_mask_per_frame)
         saved, no_mask, out_dir = save_masks_by_frame_index(
             combined_mask_per_frame,
             f"{scene['data_path']}/images",
@@ -257,7 +256,6 @@ def sam_inference_all_scenes(scenes):
 
         # Ground masks
         combined_mask_per_frame = inference_gnd_video(predictor, scene)
-        combined_mask_per_frame = prepare_masks_for_visualization(combined_mask_per_frame)
         saved, no_mask, out_dir = save_masks_by_frame_index(
             combined_mask_per_frame,
             f"{scene['data_path']}/images",
