@@ -78,7 +78,7 @@ def plot_rectangle_planes(plane_centers, plane_normals, plane_radii, rot_q, epoc
     if color_type == 'normal':
         normal_color = (plane_normals + 1.) / 2.
         normal_color = normal_color.reshape(-1, 1, 3).repeat(1, 4, 1)
-        colors = normal_color.detach().cpu().numpy().reshape(-1, 3)
+        colors = normal_color.detach().cpu().float().numpy().reshape(-1, 3)
         triangle_mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
         suffix = suffix + '_colorNormal'
     elif color_type == 'prim':
