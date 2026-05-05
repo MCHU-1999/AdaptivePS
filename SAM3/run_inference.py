@@ -1,5 +1,5 @@
 import os
-from inference import set_hf_token_from_txt, inference_bd_gnd
+from SAM3.inference import set_hf_token_from_txt, inference_bd_gnd
 
 
 # CONST
@@ -10,7 +10,7 @@ SCENES = [
         "exp_name": "Barn",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn",
         "bldg_prompt": "house in front",
-        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
+        "gnd_prompt": ["ground", "grass", "pavement"]
     },
     # DTU Datasets
     {
@@ -29,50 +29,50 @@ SCENES = [
     {
         "exp_name": "church-cadeby",
         "data_path": f"{MY_STORAGE}/Pexels/church-cadeby",
-        "bldg_prompt": "that stone masonry church building in the center of frame",
-        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
+        "bldg_prompt": "that stone masonry church building",
+        "gnd_prompt": ["ground", "grass", "pavement"]
     },
     {
         "exp_name": "church-chesterfield",
         "data_path": f"{MY_STORAGE}/Pexels/church-chesterfield",
-        "bldg_prompt": "that modern black-roofed red brick church building with a spire",
-        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
+        "bldg_prompt": "that modern black-roofed red-brick church building with a spire",
+        "gnd_prompt": ["ground", "grass", "road", "pavement"]
     },
     {
         "exp_name": "killingbeck-cemetery",
         "data_path": f"{MY_STORAGE}/Pexels/killingbeck-cemetery",
-        "bldg_prompt": "that stone masonry church building in the center of frame",
-        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
+        "bldg_prompt": "that stone masonry church building",
+        "gnd_prompt": ["ground", "grass", "road", "pavement"]
     },
     {
         "exp_name": "moskee-haarlem",
         "data_path": f"{MY_STORAGE}/Pexels/moskee-haarlem",
         "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
+        "gnd_prompt": ["ground", "water", "grass", "road", "pavement"]
     },
     {
         "exp_name": "tower-court",
         "data_path": f"{MY_STORAGE}/Pexels/tower-court",
-        "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
+        "bldg_prompt": "that historic red-brick clock-tower building",
+        "gnd_prompt": ["ground", "grass", "road", "pavement"]
     },
     {
         "exp_name": "wotrubakirche",
         "data_path": f"{MY_STORAGE}/Pexels/wotrubakirche",
-        "bldg_prompt": "the modernism concrete building in the center of frame",
-        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
+        "bldg_prompt": "the modernism concrete building",
+        "gnd_prompt": ["ground", "grass", "road", "pavement"]
     },
     {
         "exp_name": "elbphilharmonie",
         "data_path": f"{MY_STORAGE}/Pexels/elbphilharmonie",
-        "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
+        "bldg_prompt": "Elbphilharmonie, that modernism red-brick and glass building",
+        "gnd_prompt": ["ground", "water", "road", "pavement"]
     },
     {
         "exp_name": "krasna-horka-castle",
         "data_path": f"{MY_STORAGE}/Pexels/krasna-horka-castle",
-        "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": ["ground", "sand", "earth", "grass", "water", "road", "pavement"]
+        "bldg_prompt": "that castle building",
+        "gnd_prompt": ["ground", "grass", "pavement"]
     }
 ]
 

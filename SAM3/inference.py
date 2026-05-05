@@ -1,86 +1,12 @@
-import argparse
 import os
 from PIL import Image
-import cv2
 import numpy as np
-import torch
-from pathlib import Path
 from loguru import logger
-
-from sam3.model.sam3_image_processor import Sam3Processor
-from sam3.model_builder import build_sam3_image_model, build_sam3_video_predictor
-from sam3.visualization_utils import (
-    load_frame,
-    prepare_masks_for_visualization,
-    visualize_formatted_frame_output,
-)
+import torch
+from sam3.model_builder import build_sam3_video_predictor
+from sam3.visualization_utils import prepare_masks_for_visualization
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
-
-
-def propagate_in_video(predictor, session_id):
-    # we will just propagate from frame 0 to the end of the video
-    outputs_per_frame = {}
-    for response in predictor.handle_stream_request(
-        request=dict(
-            type="propagate_in_video",
-            session_id=session_id,
-        )
-    ):
-        outputs_per_frame[response["frame_index"]] = response["outputs"]
-
-    return outputs_per_frame
-
-def run_sequence_demo(resource_path: str, prompt):
-    """
-    Run sequence/video SAM3 inference.
-
-    resource_path can be:
-    - a folder of JPEG frames
-    - an MP4 file
-
-    `prompt` can be a single string or a list of strings. When multiple prompts
-    are provided, each prompt will be added to the session (useful to select
-    different objects within the same mask pass).
-    """
-    predictor = build_sam3_video_predictor()
-
-    start_response = predictor.handle_request(
-        request={
-            "type": "start_session",
-            "resource_path": resource_path,
-        }
-    )
-    session_id = start_response["session_id"]
-
-    # accept either a single prompt string or an iterable of prompt strings
-    prompts = prompt if isinstance(prompt, (list, tuple)) else [prompt]
-    for p in prompts:
-        _ = predictor.handle_request(
-            request={
-                "type": "add_prompt",
-                "session_id": session_id,
-                "frame_index": 0,
-                "text": p,
-            }
-        )
-
-    outputs_per_frame = propagate_in_video(predictor, session_id)
-    prompt_str = prompt if isinstance(prompt, str) else ",".join(prompts)
-    print(f"[sequence] path={resource_path} prompt={prompt_str} -> {len(outputs_per_frame)} frames")
-    
-    outputs_per_frame = prepare_masks_for_visualization(outputs_per_frame)
-
-    # finally, close the inference session to free its GPU resources
-    # (you may start a new session on another video)
-    _ = predictor.handle_request(
-        request=dict(
-            type="close_session",
-            session_id=session_id,
-        )
-    )
-
-    return outputs_per_frame
 
 
 def set_hf_token_from_txt(filepath="./hf_token.txt"):
@@ -105,16 +31,6 @@ def list_sorted_frames(data_dir):
     frame_files.sort(key=lambda p: int(os.path.splitext(os.path.basename(p))[0]))
     return frame_files
 
-def to_numpy_mask(mask):
-    if hasattr(mask, "detach"):
-        mask = mask.detach()
-    if hasattr(mask, "cpu"):
-        mask = mask.cpu()
-    mask_np = np.asarray(mask)
-    if mask_np.ndim > 2:
-        mask_np = np.squeeze(mask_np)
-    return mask_np
-
 def save_masks_by_frame_index(outputs_per_frame, frame_dir, output_root_dir, mask_dir_name):
     frame_files = list_sorted_frames(frame_dir)
     assert len(frame_files) == len(outputs_per_frame), f"Amount of files ({len(frame_files)}) and masks ({len(outputs_per_frame)}) inconsistent."
@@ -132,7 +48,6 @@ def save_masks_by_frame_index(outputs_per_frame, frame_dir, output_root_dir, mas
     # .items() preserves insertion order in Python 3.7+
     for i, (frame_idx, obj_dict) in enumerate(outputs_per_frame.items()):
         if obj_dict:
-            # mask_stack = np.stack([to_numpy_mask(mask) for mask in obj_dict.values()], axis=0)
             mask_stack = np.stack(list(obj_dict.values()), axis=0)
             combined_mask = np.any(mask_stack > 0, axis=0)
         else:
@@ -149,51 +64,195 @@ def save_masks_by_frame_index(outputs_per_frame, frame_dir, output_root_dir, mas
 
     return saved, no_mask, out_dir
 
+def inference_bldg_video(predictor, scene):
+    frame_dir = f"{scene['data_path']}/images"
+    bldg_prompt = scene['bldg_prompt']
+
+    # For bldg_mask we use video predictor bc the target is always there,
+    # and there should only be one target building.
+    start_response = predictor.handle_request(
+        request={
+            "type": "start_session",
+            "resource_path": frame_dir,
+        }
+    )
+    session_id = start_response["session_id"]
+
+    # accept either a single prompt string or an iterable of prompt strings
+    response = predictor.handle_request(
+        request={
+            "type": "add_prompt",
+            "session_id": session_id,
+            "frame_index": 0,
+            "text": bldg_prompt,
+        }
+    )
+    out = response["outputs"]
+
+    # Here we should remove the smaller building in background before propagation
+    if out:
+        counts = {}
+        for cur_id, binary_mask in out.items():
+            mask_np = np.asarray(binary_mask)
+            mask_np = np.squeeze(mask_np)
+            counts[cur_id] = int((mask_np > 0).sum())
+
+        largest_obj_id = max(counts, key=counts.get)
+
+        for cur_id in out.keys():
+            if cur_id != largest_obj_id:
+                predictor.handle_request(
+                    request=dict(
+                        type="remove_object",
+                        session_id=session_id,
+                        obj_id=cur_id,
+                    )
+                )
+
+    # we will just propagate from frame 0 to the end of the video
+    outputs_per_frame = {}
+    for response in predictor.handle_stream_request(
+        request=dict(
+            type="propagate_in_video",
+            session_id=session_id,
+        )
+    ):
+        outputs_per_frame[response["frame_index"]] = response["outputs"]
+    
+    # finally, close the inference session to free its GPU resources
+    # (you may start a new session on another video)
+    _ = predictor.handle_request(
+        request=dict(
+            type="close_session",
+            session_id=session_id,
+        )
+    )
+
+    return outputs_per_frame
+
+def inference_gnd_video(predictor, scene):
+    frame_dir = f"{scene['data_path']}/images"
+    gnd_prompt = scene['gnd_prompt']
+    prompts = gnd_prompt if isinstance(gnd_prompt, (list, tuple)) else [gnd_prompt]
+
+    outputs_per_frame = {}
+    for prompt in prompts:
+        # Start
+        start_response = predictor.handle_request(
+            request={
+                "type": "start_session",
+                "resource_path": frame_dir,
+            }
+        )
+        session_id = start_response["session_id"]
+
+        # accept either a single prompt string or an iterable of prompt strings
+        response = predictor.handle_request(
+            request={
+                "type": "add_prompt",
+                "session_id": session_id,
+                "frame_index": 0,
+                "text": prompt,
+            }
+        )
+
+        # we will just propagate from frame 0 to the end of the video
+        for response in predictor.handle_stream_request(
+            request=dict(
+                type="propagate_in_video",
+                session_id=session_id,
+            )
+        ):
+            frame_idx = response["frame_index"]
+            if frame_idx not in outputs_per_frame:
+                outputs_per_frame[frame_idx] = {}
+            
+            # Merge outputs from this prompt with existing frame outputs
+            outputs_per_frame[frame_idx].update(response["outputs"])
+        
+        # note: in case you already ran one text prompt and now want to switch to another text prompt
+        # it's required to reset the session first (otherwise the results would be wrong)
+        _ = predictor.handle_request(
+            request=dict(
+                type="reset_session",
+                session_id=session_id,
+            )
+        )
+    
+    # finally, close the inference session to free its GPU resources
+    # (you may start a new session on another video)
+    _ = predictor.handle_request(
+        request=dict(
+            type="close_session",
+            session_id=session_id,
+        )
+    )
+
+    return outputs_per_frame
+
 def sam_inference_a_scene(scene):
     logger.info(f"SAM Inference on scene: {scene['exp_name']}")
-    frame_dir = f"{scene['data_path']}/images"
+    torch.inference_mode().__enter__()
+
+    predictor = build_sam3_video_predictor()
 
     # Building masks
-    outputs_per_frame = run_sequence_demo(frame_dir, scene['bldg_prompt'])
+    outputs_per_frame = inference_bldg_video(predictor, scene)
+    outputs_per_frame = prepare_masks_for_visualization(outputs_per_frame)
     saved, no_mask, out_dir = save_masks_by_frame_index(
         outputs_per_frame,
-        frame_dir,
+        f"{scene['data_path']}/images",
         scene['data_path'],
         'bldg_masks',
     )
-    logger.info(f"{scene['exp_name']}: saved {saved} masks, {no_mask} of them are empty")
+    logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} of them are empty")
 
     # Ground masks
-    outputs_per_frame = run_sequence_demo(frame_dir, scene['gnd_prompt'])
+    outputs_per_frame = inference_gnd_video(predictor, scene)
+    outputs_per_frame = prepare_masks_for_visualization(outputs_per_frame)
+
     saved, no_mask, out_dir = save_masks_by_frame_index(
         outputs_per_frame,
-        frame_dir,
+        f"{scene['data_path']}/images",
         scene['data_path'],
         'gnd_masks',
     )
-    logger.info(f"{scene['exp_name']}: saved {saved} masks, {no_mask} of them are empty")
+    logger.info(f"{scene['exp_name']}: saved {saved} gnd_masks, {no_mask} of them are empty")
 
-def inference_bd_gnd(scenes):
+    # after all inference is done, we can shutdown the predictor
+    # to free up the multi-GPU process group
+    predictor.shutdown()
+
+def sam_inference_all_scenes(scenes):
+    torch.inference_mode().__enter__()
+    predictor = build_sam3_video_predictor()
+
     for scene in scenes:
-        logger.info(f"\nInference on scene: {scene['exp_name']}")
-        frame_dir = f"{scene['data_path']}/images"
+        logger.info(f"SAM Inference on scene: {scene['exp_name']}")
 
         # Building masks
-        outputs_per_frame = run_sequence_demo(frame_dir, scene['bldg_prompt'])
+        outputs_per_frame = inference_bldg_video(predictor, scene)
+        outputs_per_frame = prepare_masks_for_visualization(outputs_per_frame)
         saved, no_mask, out_dir = save_masks_by_frame_index(
             outputs_per_frame,
-            frame_dir,
+            f"{scene['data_path']}/images",
             scene['data_path'],
             'bldg_masks',
         )
-        logger.info(f"{scene['exp_name']}: saved {saved} masks, {no_mask} of them are empty")
+        logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} of them are empty")
 
         # Ground masks
-        outputs_per_frame = run_sequence_demo(frame_dir, scene['gnd_prompt'])
+        outputs_per_frame = inference_gnd_video(predictor, scene)
+        outputs_per_frame = prepare_masks_for_visualization(outputs_per_frame)
+
         saved, no_mask, out_dir = save_masks_by_frame_index(
             outputs_per_frame,
-            frame_dir,
+            f"{scene['data_path']}/images",
             scene['data_path'],
             'gnd_masks',
         )
-        logger.info(f"{scene['exp_name']}: saved {saved} masks, {no_mask} of them are empty")
+        logger.info(f"{scene['exp_name']}: saved {saved} gnd_masks, {no_mask} of them are empty")
+
+    # after all inference is done, we can shutdown the predictor
+    # to free up the multi-GPU process group
+    predictor.shutdown()
