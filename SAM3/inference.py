@@ -31,9 +31,9 @@ def list_sorted_frames(data_dir):
     frame_files.sort(key=lambda p: int(os.path.splitext(os.path.basename(p))[0]))
     return frame_files
 
-def save_masks_by_frame_index(outputs_per_frame, frame_dir, output_root_dir, mask_dir_name):
+def save_masks_by_frame_index(combined_mask_per_frame, frame_dir, output_root_dir, mask_dir_name):
     frame_files = list_sorted_frames(frame_dir)
-    assert len(frame_files) == len(outputs_per_frame), f"Amount of files ({len(frame_files)}) and masks ({len(outputs_per_frame)}) inconsistent."
+    assert len(frame_files) == len(combined_mask_per_frame), f"Amount of files ({len(frame_files)}) and masks ({len(combined_mask_per_frame)}) inconsistent."
 
     out_dir = os.path.join(output_root_dir, mask_dir_name)
     os.makedirs(out_dir, exist_ok=True)
@@ -46,12 +46,12 @@ def save_masks_by_frame_index(outputs_per_frame, frame_dir, output_root_dir, mas
     saved = 0
     no_mask = 0
     # .items() preserves insertion order in Python 3.7+
-    for i, (frame_idx, obj_dict) in enumerate(outputs_per_frame.items()):
-        if obj_dict:
-            mask_stack = np.stack(list(obj_dict.values()), axis=0)
-            combined_mask = np.any(mask_stack > 0, axis=0)
+    for i, (frame_idx, mask) in enumerate(combined_mask_per_frame.items()):
+        if mask is not None:
+            # mask exist
+            combined_mask = mask
         else:
-            # logger.warning("Cannot find obj_dict, exporting all 1 masks.")
+            # logger.warning("Cannot find mask, exporting all 1 masks.")
             combined_mask = np.ones(img_res, dtype=bool)
             no_mask += 1
 
@@ -110,14 +110,22 @@ def inference_bldg_video(predictor, scene):
                 )
 
     # we will just propagate from frame 0 to the end of the video
-    outputs_per_frame = {}
+    combined_mask_per_frame = {}
     for response in predictor.handle_stream_request(
         request=dict(
             type="propagate_in_video",
             session_id=session_id,
         )
     ):
-        outputs_per_frame[response["frame_index"]] = response["outputs"]
+        frame_idx = response["frame_index"]
+        masks = response["outputs"].get("out_binary_masks")
+        # Merge outputs from this prompt with existing frame outputs
+        if len(masks) > 0:
+            mask_stack = np.stack(masks, axis=0)
+            combined_mask = np.any(mask_stack > 0, axis=0)
+            combined_mask_per_frame[frame_idx] = combined_mask
+        else: 
+            combined_mask_per_frame[frame_idx] = None
     
     # finally, close the inference session to free its GPU resources
     # (you may start a new session on another video)
@@ -128,14 +136,14 @@ def inference_bldg_video(predictor, scene):
         )
     )
 
-    return outputs_per_frame
+    return combined_mask_per_frame
 
 def inference_gnd_video(predictor, scene):
     frame_dir = f"{scene['data_path']}/images"
     gnd_prompt = scene['gnd_prompt']
     prompts = gnd_prompt if isinstance(gnd_prompt, (list, tuple)) else [gnd_prompt]
 
-    outputs_per_frame = {}
+    combined_mask_per_frame = {}
     for prompt in prompts:
         # Start
         start_response = predictor.handle_request(
@@ -164,11 +172,19 @@ def inference_gnd_video(predictor, scene):
             )
         ):
             frame_idx = response["frame_index"]
-            if frame_idx not in outputs_per_frame:
-                outputs_per_frame[frame_idx] = {}
-            
+            masks = response["outputs"].get("out_binary_masks")
             # Merge outputs from this prompt with existing frame outputs
-            outputs_per_frame[frame_idx].update(response["outputs"])
+            if len(masks) > 0:
+                mask_stack = np.stack(masks, axis=0)
+                combined_mask = np.any(mask_stack > 0, axis=0)
+
+                prev_mask = combined_mask_per_frame.get(frame_idx)
+                if prev_mask is not None:
+                    combined_mask_per_frame[frame_idx] = combined_mask | prev_mask
+                else:
+                    combined_mask_per_frame[frame_idx] = combined_mask
+            else:
+                combined_mask_per_frame[frame_idx] = None
         
         # note: in case you already ran one text prompt and now want to switch to another text prompt
         # it's required to reset the session first (otherwise the results would be wrong)
@@ -188,7 +204,7 @@ def inference_gnd_video(predictor, scene):
         )
     )
 
-    return outputs_per_frame
+    return combined_mask_per_frame
 
 def sam_inference_a_scene(scene):
     logger.info(f"SAM Inference on scene: {scene['exp_name']}")
@@ -197,10 +213,9 @@ def sam_inference_a_scene(scene):
     predictor = build_sam3_video_predictor()
 
     # Building masks
-    outputs_per_frame = inference_bldg_video(predictor, scene)
-    outputs_per_frame = prepare_masks_for_visualization(outputs_per_frame)
+    combined_mask_per_frame = inference_bldg_video(predictor, scene)
     saved, no_mask, out_dir = save_masks_by_frame_index(
-        outputs_per_frame,
+        combined_mask_per_frame,
         f"{scene['data_path']}/images",
         scene['data_path'],
         'bldg_masks',
@@ -208,11 +223,9 @@ def sam_inference_a_scene(scene):
     logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} of them are empty")
 
     # Ground masks
-    outputs_per_frame = inference_gnd_video(predictor, scene)
-    outputs_per_frame = prepare_masks_for_visualization(outputs_per_frame)
-
+    combined_mask_per_frame = inference_gnd_video(predictor, scene)
     saved, no_mask, out_dir = save_masks_by_frame_index(
-        outputs_per_frame,
+        combined_mask_per_frame,
         f"{scene['data_path']}/images",
         scene['data_path'],
         'gnd_masks',
@@ -231,10 +244,10 @@ def sam_inference_all_scenes(scenes):
         logger.info(f"SAM Inference on scene: {scene['exp_name']}")
 
         # Building masks
-        outputs_per_frame = inference_bldg_video(predictor, scene)
-        outputs_per_frame = prepare_masks_for_visualization(outputs_per_frame)
+        combined_mask_per_frame = inference_bldg_video(predictor, scene)
+        combined_mask_per_frame = prepare_masks_for_visualization(combined_mask_per_frame)
         saved, no_mask, out_dir = save_masks_by_frame_index(
-            outputs_per_frame,
+            combined_mask_per_frame,
             f"{scene['data_path']}/images",
             scene['data_path'],
             'bldg_masks',
@@ -242,11 +255,10 @@ def sam_inference_all_scenes(scenes):
         logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} of them are empty")
 
         # Ground masks
-        outputs_per_frame = inference_gnd_video(predictor, scene)
-        outputs_per_frame = prepare_masks_for_visualization(outputs_per_frame)
-
+        combined_mask_per_frame = inference_gnd_video(predictor, scene)
+        combined_mask_per_frame = prepare_masks_for_visualization(combined_mask_per_frame)
         saved, no_mask, out_dir = save_masks_by_frame_index(
-            outputs_per_frame,
+            combined_mask_per_frame,
             f"{scene['data_path']}/images",
             scene['data_path'],
             'gnd_masks',
