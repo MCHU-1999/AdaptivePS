@@ -64,6 +64,18 @@ def save_masks_by_frame_index(combined_mask_per_frame, frame_dir, output_root_di
 
     return saved, no_mask, out_dir
 
+
+def propagate_in_video(predictor, session_id):
+    outputs_per_frame = {}
+    for response in predictor.handle_stream_request(
+        request=dict(
+            type="propagate_in_video",
+            session_id=session_id,
+        )
+    ):
+        outputs_per_frame[response["frame_index"]] = response["outputs"]
+    return outputs_per_frame
+
 def inference_bldg_video(predictor, scene):
     frame_dir = f"{scene['data_path']}/images"
     bldg_prompt = scene['bldg_prompt']
@@ -87,39 +99,35 @@ def inference_bldg_video(predictor, scene):
             "text": bldg_prompt,
         }
     )
-    out = response["outputs"]
+    # The 1st propagation
+    initial_outputs = propagate_in_video(predictor, session_id)
 
     # Here we should remove the smaller building in background before propagation
-    if out and "out_binary_masks" in out:
-        counts = {}
-        for idx, binary_mask in enumerate(out["out_binary_masks"]):
-            obj_id = out["out_obj_ids"][idx]
-            mask_np = np.asarray(binary_mask)
-            mask_np = np.squeeze(mask_np)
-            counts[obj_id] = int((mask_np > 0).sum())
+    for frame_idx, outputs in initial_outputs.items():
+        masks = outputs.get("out_binary_masks")
+        if len(masks) > 0:
+            counts = {}
+            for idx, binary_mask in enumerate(masks):
+                obj_id = outputs["out_obj_ids"][idx]
+                counts[obj_id] = int((binary_mask > 0).sum())
 
-        largest_obj_id = max(counts, key=counts.get)
+            largest_obj_id = max(counts, key=counts.get)
 
-        for obj_id in counts.keys():
-            if obj_id != largest_obj_id:
-                predictor.handle_request(
-                    request=dict(
-                        type="remove_object",
-                        session_id=session_id,
-                        obj_id=obj_id,
+            for obj_id in counts.keys():
+                if obj_id != largest_obj_id:
+                    predictor.handle_request(
+                        request=dict(
+                            type="remove_object",
+                            session_id=session_id,
+                            obj_id=obj_id,
+                        )
                     )
-                )
 
-    # we will just propagate from frame 0 to the end of the video
+    # The 2nd propagation
+    outputs_per_frame = propagate_in_video(predictor, session_id)
     combined_mask_per_frame = {}
-    for response in predictor.handle_stream_request(
-        request=dict(
-            type="propagate_in_video",
-            session_id=session_id,
-        )
-    ):
-        frame_idx = response["frame_index"]
-        masks = response["outputs"].get("out_binary_masks")
+    for frame_idx, outputs in outputs_per_frame.items():
+        masks = outputs.get("out_binary_masks")
         # Merge outputs from this prompt with existing frame outputs
         if len(masks) > 0:
             mask_stack = np.stack(masks, axis=0)
@@ -144,17 +152,17 @@ def inference_gnd_video(predictor, scene):
     gnd_prompt = scene['gnd_prompt']
     prompts = gnd_prompt if isinstance(gnd_prompt, (list, tuple)) else [gnd_prompt]
 
+    # Start
+    start_response = predictor.handle_request(
+        request={
+            "type": "start_session",
+            "resource_path": frame_dir,
+        }
+    )
+    session_id = start_response["session_id"]
+
     combined_mask_per_frame = {}
     for prompt in prompts:
-        # Start
-        start_response = predictor.handle_request(
-            request={
-                "type": "start_session",
-                "resource_path": frame_dir,
-            }
-        )
-        session_id = start_response["session_id"]
-
         # accept either a single prompt string or an iterable of prompt strings
         response = predictor.handle_request(
             request={
