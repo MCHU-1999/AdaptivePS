@@ -107,7 +107,7 @@ def inference_bldg_video(predictor, scene):
     mask_per_frame = {}
     for frame_idx, outputs in outputs_per_frame.items():
         masks = outputs.get("out_binary_masks")
-        if masks and len(masks) > 0:
+        if masks is not None and len(masks) > 0:
             # Find the index of the mask with the most pixels
             areas = [int((m > 0).sum()) for m in masks]
             max_idx = np.argmax(areas)
@@ -159,7 +159,7 @@ def inference_gnd_video(predictor, scene):
         for frame_idx, outputs in outputs_per_frame.items():
             masks = outputs.get("out_binary_masks")
             # Merge outputs from this prompt with existing frame outputs
-            if len(masks) > 0:
+            if masks is not None and len(masks) > 0:
                 mask_stack = np.stack(masks, axis=0)
                 combined_mask = np.any(mask_stack > 0, axis=0)
 
