@@ -195,8 +195,8 @@ def sam_inference_a_scene(scene):
     logger.info(f"SAM Inference on scene: {scene['exp_name']}")
     torch.inference_mode().__enter__()
 
-    # predictor = build_sam3_multiplex_video_predictor(use_fa3=False)
-    predictor = build_sam3_video_predictor()
+    predictor = build_sam3_multiplex_video_predictor()
+    # predictor = build_sam3_video_predictor()
 
     # Building masks
     combined_mask_per_frame = inference_bldg_video(predictor, scene)
@@ -224,8 +224,8 @@ def sam_inference_a_scene(scene):
 
 def sam_inference_all_scenes(scenes):
     torch.inference_mode().__enter__()
-    # predictor = build_sam3_multiplex_video_predictor(use_fa3=False)
-    predictor = build_sam3_video_predictor()
+    predictor = build_sam3_multiplex_video_predictor()
+    # predictor = build_sam3_video_predictor()
 
     for scene in scenes:
         logger.info(f"SAM Inference on scene: {scene['exp_name']}")
