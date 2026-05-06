@@ -53,8 +53,7 @@ def _create_empty_datapoint() -> Datapoint:
 
 
 def _set_image(datapoint: Datapoint, pil_image: Image.Image):
-    # PIL Image.size returns (width, height)
-    h, w = pil_image.size[1], pil_image.size[0]
+    w, h = pil_image.size
     datapoint.images = [SAMImage(data=pil_image, objects=[], size=[h, w])]
 
 
@@ -118,9 +117,8 @@ def _ensure_numpy_mask(mask) -> np.ndarray:
     return (mask_np > 0.5).astype(bool)
 
 
-def _empty_mask_for_image(frame_path: str) -> np.ndarray:
-    with Image.open(frame_path) as img:
-        h, w = img.height, img.width
+def _empty_mask_for_image(img_shape: Tuple[int, int]) -> np.ndarray:
+    h, w = img_shape
     return np.zeros((h, w), dtype=bool)
 
 
@@ -184,7 +182,13 @@ def _or_all_instances_mask(result: Dict, fallback_shape: Tuple[int, int]) -> np.
     return agg
 
 
-def _save_masks_by_filename(mask_by_frame: Dict[str, np.ndarray], frame_dir: str, output_root_dir: str, mask_dir_name: str):
+def _save_masks_by_filename(
+    mask_by_frame: Dict[str, np.ndarray],
+    frame_dir: str,
+    output_root_dir: str,
+    mask_dir_name: str,
+    img_shape: Tuple[int, int],
+):
     frame_files = list_sorted_frames(frame_dir)
     out_dir = os.path.join(output_root_dir, mask_dir_name)
     os.makedirs(out_dir, exist_ok=True)
@@ -193,10 +197,9 @@ def _save_masks_by_filename(mask_by_frame: Dict[str, np.ndarray], frame_dir: str
     no_mask = 0
 
     for frame_name in frame_files:
-        frame_path = os.path.join(frame_dir, frame_name)
         mask = mask_by_frame.get(frame_name)
         if mask is None:
-            mask = _empty_mask_for_image(frame_path)
+            mask = _empty_mask_for_image(img_shape)
             no_mask += 1
         else:
             # Ensure mask is boolean/binary
@@ -211,6 +214,16 @@ def _save_masks_by_filename(mask_by_frame: Dict[str, np.ndarray], frame_dir: str
         saved += 1
 
     return saved, no_mask, out_dir
+
+
+def _get_image_shape(frame_dir: str) -> Tuple[int, int]:
+    frame_files = list_sorted_frames(frame_dir)
+    if not frame_files:
+        raise ValueError(f"No image files found in {frame_dir}")
+
+    sample_path = os.path.join(frame_dir, frame_files[0])
+    with Image.open(sample_path) as img:
+        return img.height, img.width
 
 
 def _run_batched_image_inference_for_prompts(
@@ -266,6 +279,7 @@ def inference_bldg_mask(scene: Dict, model, transform, postprocessor, batch_size
     bldg_prompt = scene["bldg_prompt"]
     frame_dir = f"{scene['data_path']}/images"
     frame_files = list_sorted_frames(frame_dir)
+    img_shape = _get_image_shape(frame_dir)
 
     prompt_results = _run_batched_image_inference_for_prompts(
         scene=scene,
@@ -280,12 +294,8 @@ def inference_bldg_mask(scene: Dict, model, transform, postprocessor, batch_size
     bldg_masks: Dict[str, np.ndarray] = {}
 
     for frame_name in frame_files:
-        frame_path = os.path.join(frame_dir, frame_name)
-        with Image.open(frame_path) as img:
-            shape = (img.height, img.width)
-
         result = per_frame_result.get(frame_name, {})
-        bldg_masks[frame_name] = _largest_instance_mask(result, fallback_shape=shape)
+        bldg_masks[frame_name] = _largest_instance_mask(result, fallback_shape=img_shape)
 
     return bldg_masks
 
@@ -296,6 +306,7 @@ def inference_gnd_mask(scene: Dict, model, transform, postprocessor, batch_size:
 
     frame_dir = f"{scene['data_path']}/images"
     frame_files = list_sorted_frames(frame_dir)
+    img_shape = _get_image_shape(frame_dir)
 
     prompt_results = _run_batched_image_inference_for_prompts(
         scene=scene,
@@ -309,14 +320,10 @@ def inference_gnd_mask(scene: Dict, model, transform, postprocessor, batch_size:
     gnd_masks: Dict[str, np.ndarray] = {}
 
     for frame_name in frame_files:
-        frame_path = os.path.join(frame_dir, frame_name)
-        with Image.open(frame_path) as img:
-            shape = (img.height, img.width)
-
-        merged = np.zeros(shape, dtype=np.bool_)
+        merged = np.zeros(img_shape, dtype=bool)
         for prompt in prompts:
             result = prompt_results[prompt].get(frame_name, {})
-            merged = merged | _or_all_instances_mask(result, fallback_shape=shape)
+            merged = merged | _or_all_instances_mask(result, fallback_shape=img_shape)
 
         gnd_masks[frame_name] = merged
 
@@ -326,6 +333,7 @@ def inference_gnd_mask(scene: Dict, model, transform, postprocessor, batch_size:
 def sam_inference_a_scene(scene: Dict, model, transform, postprocessor, batch_size: int = 4):
     logger.info(f"SAM Inference on scene: {scene['exp_name']}")
     frame_dir = f"{scene['data_path']}/images"
+    img_shape = _get_image_shape(frame_dir)
 
     bldg_masks = inference_bldg_mask(scene, model, transform, postprocessor, batch_size=batch_size)
     saved, no_mask, _out_dir = _save_masks_by_filename(
@@ -333,6 +341,7 @@ def sam_inference_a_scene(scene: Dict, model, transform, postprocessor, batch_si
         frame_dir,
         scene["data_path"],
         "bldg_masks",
+        img_shape,
     )
     logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} are empty")
 
@@ -342,11 +351,12 @@ def sam_inference_a_scene(scene: Dict, model, transform, postprocessor, batch_si
         frame_dir,
         scene["data_path"],
         "gnd_masks",
+        img_shape,
     )
     logger.info(f"{scene['exp_name']}: saved {saved} gnd_masks, {no_mask} are empty")
 
 
-def inference_bd_gnd(scenes: List[Dict], batch_size: int = 4):
+def sam_inference_all_scenes(scenes: List[Dict], batch_size: int = 50):
     # Global performance setup.
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
