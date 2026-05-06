@@ -22,11 +22,11 @@ if __name__ == "__main__":
     da3_inference_all_scenes(SCENES)
 
     ## PlanarSplatting
-    # for scene in SCENES:
-    #     run_planarsplatting(
-    #         data_path=scene['data_path'],
-    #         exp_name=scene['exp_name'],
-    #         out_path="A3_progress/DA3FG2_split",
-    #         conf_path="configs/DA3FG++big.conf",
-    #         mask="bldg_masks"
-    #     )
+    for scene in SCENES:
+        run_planarsplatting(
+            data_path=scene['data_path'],
+            exp_name=scene['exp_name'],
+            out_path="A3_progress/DA3FG2_split",
+            conf_path="configs/DA3FG++big.conf",
+            mask="bldg_masks"
+        )
