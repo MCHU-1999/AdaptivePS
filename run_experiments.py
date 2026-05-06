@@ -81,12 +81,12 @@ SCENES = [
         "exp_name": "church-cadeby",
         "data_path": f"{MY_STORAGE}/Pexels/church-cadeby",
         "bldg_prompt": "that stone masonry church building",
-        "gnd_prompt": ["ground", "grass", "pavement"]
+        "gnd_prompt": ["ground", "grass"]
     },
     {
         "exp_name": "church-chesterfield",
         "data_path": f"{MY_STORAGE}/Pexels/church-chesterfield",
-        "bldg_prompt": "that modern black-roofed red-brick church building with a spire",
+        "bldg_prompt": "the red-brick black-roof building with a spire",
         "gnd_prompt": ["grass", "road", "pavement"]
     },
     {
@@ -99,12 +99,12 @@ SCENES = [
         "exp_name": "moskee-haarlem",
         "data_path": f"{MY_STORAGE}/Pexels/moskee-haarlem",
         "bldg_prompt": "that building in the center of frame",
-        "gnd_prompt": ["ground", "water", "grass", "road"]
+        "gnd_prompt": ["water", "grass"]
     },
     {
         "exp_name": "tower-court",
         "data_path": f"{MY_STORAGE}/Pexels/tower-court",
-        "bldg_prompt": "that historic red-brick clock-tower building",
+        "bldg_prompt": "that building with clock-tower",
         "gnd_prompt": ["ground", "road", "pavement"]
     },
     {
