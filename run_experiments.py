@@ -86,7 +86,7 @@ SCENES = [
     {
         "exp_name": "church-chesterfield",
         "data_path": f"{MY_STORAGE}/Pexels/church-chesterfield",
-        "bldg_prompt": "the red-brick black-roof building with a spire",
+        "bldg_prompt": "the red building with a spire in center of frame",
         "gnd_prompt": ["grass", "road", "pavement"]
     },
     {

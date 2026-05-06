@@ -1,6 +1,6 @@
 import subprocess, sys, os
-from DA3.inference import da3_inference_all_scenes
-from SAM3.inference import set_hf_token_from_txt, sam_inference_all_scenes
+from DA3.inference import da3_inference_all_scenes, da3_inference_a_scene
+from SAM3.inference import set_hf_token_from_txt, sam_inference_all_scenes, sam_inference_a_scene
 # from SAM3.inference_batched import set_hf_token_from_txt, sam_inference_all_scenes
 from run_DA3FG import run_planarsplatting
 
@@ -16,10 +16,12 @@ if __name__ == "__main__":
     set_hf_token_from_txt(token_path)
 
     ## SAM3
-    sam_inference_all_scenes(SCENES)
+    # sam_inference_all_scenes(SCENES)
+    sam_inference_a_scene(SCENES[4]) # church-chesterfield
 
     ## DA3
-    da3_inference_all_scenes(SCENES)
+    # da3_inference_all_scenes(SCENES)
+    da3_inference_a_scene(SCENES[4]) # church-chesterfield
 
     ## PlanarSplatting
     for scene in SCENES:
