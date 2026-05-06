@@ -3,7 +3,7 @@ from PIL import Image
 import numpy as np
 from loguru import logger
 import torch
-from sam3.model_builder import build_sam3_video_predictor
+from sam3.model_builder import build_sam3_video_predictor, build_sam3_multiplex_video_predictor
 from sam3.visualization_utils import prepare_masks_for_visualization
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
@@ -211,7 +211,7 @@ def sam_inference_a_scene(scene):
     logger.info(f"SAM Inference on scene: {scene['exp_name']}")
     torch.inference_mode().__enter__()
 
-    predictor = build_sam3_video_predictor()
+    predictor = build_sam3_multiplex_video_predictor()
 
     # Building masks
     combined_mask_per_frame = inference_bldg_video(predictor, scene)
@@ -239,7 +239,7 @@ def sam_inference_a_scene(scene):
 
 def sam_inference_all_scenes(scenes):
     torch.inference_mode().__enter__()
-    predictor = build_sam3_video_predictor()
+    predictor = build_sam3_multiplex_video_predictor()
 
     for scene in scenes:
         logger.info(f"SAM Inference on scene: {scene['exp_name']}")

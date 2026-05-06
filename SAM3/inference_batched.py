@@ -263,7 +263,9 @@ def _run_batched_image_inference_for_prompts(
         batch = collate(datapoints, dict_key="dummy")["dummy"]
         batch = copy_data_to_device(batch, device, non_blocking=True)
 
-        output = model(batch)
+        # Ensure gradients are disabled during model forward (some fused ops require it)
+        with torch.inference_mode():
+            output = model(batch)
         processed_results = postprocessor.process_results(output, batch.find_metadatas)
 
         for qid, (frame_name, prompt, _shape) in query_to_meta.items():
