@@ -195,9 +195,10 @@ def inference_gnd_video(predictor, scene):
 
 def sam_inference_a_scene(scene):
     logger.info(f"SAM Inference on scene: {scene['exp_name']}")
+    # with torch.inference_mode(), torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+        # predictor = build_sam3_multiplex_video_predictor()
     with torch.inference_mode():
-        predictor = build_sam3_multiplex_video_predictor()
-        # predictor = build_sam3_video_predictor()
+        predictor = build_sam3_video_predictor()
 
         # Building masks
         combined_mask_per_frame = inference_bldg_video(predictor, scene)
@@ -227,10 +228,10 @@ def sam_inference_a_scene(scene):
 
 def sam_inference_all_scenes(scenes):
 
-    # with torch.inference_mode():
-    with torch.inference_mode(), torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-        predictor = build_sam3_multiplex_video_predictor()
-        # predictor = build_sam3_video_predictor()
+    # with torch.inference_mode(), torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+        # predictor = build_sam3_multiplex_video_predictor()
+    with torch.inference_mode():
+        predictor = build_sam3_video_predictor()
 
         for scene in scenes:
             logger.info(f"SAM Inference on scene: {scene['exp_name']}")

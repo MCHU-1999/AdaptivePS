@@ -63,68 +63,68 @@ SCENES = [
         "bldg_prompt": "house in front",
         "gnd_prompt": ["ground", "grass", "pavement"]
     },
-    # # DTU Datasets
-    # {
-    #     "exp_name": "dtu-scan24",
-    #     "data_path": f"{MY_STORAGE}/DTU/scan24",
-    #     "bldg_prompt": "the buildings in foreground",
-    #     "gnd_prompt": "white table surface"
-    # },
-    # {
-    #     "exp_name": "dtu-scan40",
-    #     "data_path": f"{MY_STORAGE}/DTU/scan40",
-    #     "bldg_prompt": "the bricks",
-    #     "gnd_prompt": "white table surface"
-    # },
-    # # Pexels Datssets
-    # {
-    #     "exp_name": "church-cadeby",
-    #     "data_path": f"{MY_STORAGE}/Pexels/church-cadeby",
-    #     "bldg_prompt": "that stone masonry church building",
-    #     "gnd_prompt": ["ground", "grass", "pavement"]
-    # },
-    # {
-    #     "exp_name": "church-chesterfield",
-    #     "data_path": f"{MY_STORAGE}/Pexels/church-chesterfield",
-    #     "bldg_prompt": "that modern black-roofed red-brick church building with a spire",
-    #     "gnd_prompt": ["ground", "grass", "road", "pavement"]
-    # },
-    # {
-    #     "exp_name": "killingbeck-cemetery",
-    #     "data_path": f"{MY_STORAGE}/Pexels/killingbeck-cemetery",
-    #     "bldg_prompt": "that stone masonry church building",
-    #     "gnd_prompt": ["ground", "grass", "road", "pavement"]
-    # },
-    # {
-    #     "exp_name": "moskee-haarlem",
-    #     "data_path": f"{MY_STORAGE}/Pexels/moskee-haarlem",
-    #     "bldg_prompt": "that building in the center of frame",
-    #     "gnd_prompt": ["ground", "water", "grass", "road", "pavement"]
-    # },
-    # {
-    #     "exp_name": "tower-court",
-    #     "data_path": f"{MY_STORAGE}/Pexels/tower-court",
-    #     "bldg_prompt": "that historic red-brick clock-tower building",
-    #     "gnd_prompt": ["ground", "grass", "road", "pavement"]
-    # },
-    # {
-    #     "exp_name": "wotrubakirche",
-    #     "data_path": f"{MY_STORAGE}/Pexels/wotrubakirche",
-    #     "bldg_prompt": "the modernism concrete building",
-    #     "gnd_prompt": ["ground", "grass", "road", "pavement"]
-    # },
-    # {
-    #     "exp_name": "elbphilharmonie",
-    #     "data_path": f"{MY_STORAGE}/Pexels/elbphilharmonie",
-    #     "bldg_prompt": "Elbphilharmonie, that modernism red-brick and glass building",
-    #     "gnd_prompt": ["ground", "water", "road", "pavement"]
-    # },
-    # {
-    #     "exp_name": "krasna-horka-castle",
-    #     "data_path": f"{MY_STORAGE}/Pexels/krasna-horka-castle",
-    #     "bldg_prompt": "that castle building",
-    #     "gnd_prompt": ["ground", "grass", "pavement"]
-    # }
+    # DTU Datasets
+    {
+        "exp_name": "dtu-scan24",
+        "data_path": f"{MY_STORAGE}/DTU/scan24",
+        "bldg_prompt": "the buildings in foreground",
+        "gnd_prompt": "white table surface"
+    },
+    {
+        "exp_name": "dtu-scan40",
+        "data_path": f"{MY_STORAGE}/DTU/scan40",
+        "bldg_prompt": "the bricks",
+        "gnd_prompt": "white table surface"
+    },
+    # Pexels Datssets
+    {
+        "exp_name": "church-cadeby",
+        "data_path": f"{MY_STORAGE}/Pexels/church-cadeby",
+        "bldg_prompt": "that stone masonry church building",
+        "gnd_prompt": ["ground", "grass", "pavement"]
+    },
+    {
+        "exp_name": "church-chesterfield",
+        "data_path": f"{MY_STORAGE}/Pexels/church-chesterfield",
+        "bldg_prompt": "that modern black-roofed red-brick church building with a spire",
+        "gnd_prompt": ["grass", "road", "pavement"]
+    },
+    {
+        "exp_name": "killingbeck-cemetery",
+        "data_path": f"{MY_STORAGE}/Pexels/killingbeck-cemetery",
+        "bldg_prompt": "that stone masonry church building",
+        "gnd_prompt": ["ground", "grass", "road"]
+    },
+    {
+        "exp_name": "moskee-haarlem",
+        "data_path": f"{MY_STORAGE}/Pexels/moskee-haarlem",
+        "bldg_prompt": "that building in the center of frame",
+        "gnd_prompt": ["ground", "water", "grass", "road"]
+    },
+    {
+        "exp_name": "tower-court",
+        "data_path": f"{MY_STORAGE}/Pexels/tower-court",
+        "bldg_prompt": "that historic red-brick clock-tower building",
+        "gnd_prompt": ["ground", "road", "pavement"]
+    },
+    {
+        "exp_name": "wotrubakirche",
+        "data_path": f"{MY_STORAGE}/Pexels/wotrubakirche",
+        "bldg_prompt": "the modernism concrete building",
+        "gnd_prompt": ["grass", "road", "pavement"]
+    },
+    {
+        "exp_name": "elbphilharmonie",
+        "data_path": f"{MY_STORAGE}/Pexels/elbphilharmonie",
+        "bldg_prompt": "Elbphilharmonie, that modernism red-brick and glass building",
+        "gnd_prompt": ["water", "road", "pavement"]
+    },
+    {
+        "exp_name": "krasna-horka-castle",
+        "data_path": f"{MY_STORAGE}/Pexels/krasna-horka-castle",
+        "bldg_prompt": "that castle building",
+        "gnd_prompt": ["ground", "grass", "pavement"]
+    }
 ]
 
 # ================================================================================
