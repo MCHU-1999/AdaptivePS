@@ -99,42 +99,23 @@ def inference_bldg_video(predictor, scene):
             "text": bldg_prompt,
         }
     )
-    # The 1st propagation
-    initial_outputs = propagate_in_video(predictor, session_id)
 
-    # Here we should remove the smaller building in background before propagation
-    for frame_idx, outputs in initial_outputs.items():
-        masks = outputs.get("out_binary_masks")
-        if len(masks) > 0:
-            counts = {}
-            for idx, binary_mask in enumerate(masks):
-                obj_id = outputs["out_obj_ids"][idx]
-                counts[obj_id] = int((binary_mask > 0).sum())
-
-            largest_obj_id = max(counts, key=counts.get)
-
-            for obj_id in counts.keys():
-                if obj_id != largest_obj_id:
-                    predictor.handle_request(
-                        request=dict(
-                            type="remove_object",
-                            session_id=session_id,
-                            obj_id=obj_id,
-                        )
-                    )
-
-    # The 2nd propagation
+    # The propagation
     outputs_per_frame = propagate_in_video(predictor, session_id)
-    combined_mask_per_frame = {}
+    
+    # Remove smaller masks, preserve only the biggest one
+    mask_per_frame = {}
     for frame_idx, outputs in outputs_per_frame.items():
         masks = outputs.get("out_binary_masks")
-        # Merge outputs from this prompt with existing frame outputs
-        if len(masks) > 0:
-            mask_stack = np.stack(masks, axis=0)
-            combined_mask = np.any(mask_stack > 0, axis=0)
-            combined_mask_per_frame[frame_idx] = combined_mask
-        else: 
-            combined_mask_per_frame[frame_idx] = None
+        if masks and len(masks) > 0:
+            # Find the index of the mask with the most pixels
+            areas = [int((m > 0).sum()) for m in masks]
+            max_idx = np.argmax(areas)
+            
+            # Keep only that one mask
+            mask_per_frame[frame_idx] = masks[max_idx]
+        else:
+            mask_per_frame[frame_idx] = None
     
     # finally, close the inference session to free its GPU resources
     # (you may start a new session on another video)
@@ -145,7 +126,7 @@ def inference_bldg_video(predictor, scene):
         )
     )
 
-    return combined_mask_per_frame
+    return mask_per_frame
 
 def inference_gnd_video(predictor, scene):
     frame_dir = f"{scene['data_path']}/images"
@@ -174,14 +155,9 @@ def inference_gnd_video(predictor, scene):
         )
 
         # we will just propagate from frame 0 to the end of the video
-        for response in predictor.handle_stream_request(
-            request=dict(
-                type="propagate_in_video",
-                session_id=session_id,
-            )
-        ):
-            frame_idx = response["frame_index"]
-            masks = response["outputs"].get("out_binary_masks")
+        outputs_per_frame = propagate_in_video(predictor, session_id)
+        for frame_idx, outputs in outputs_per_frame.items():
+            masks = outputs.get("out_binary_masks")
             # Merge outputs from this prompt with existing frame outputs
             if len(masks) > 0:
                 mask_stack = np.stack(masks, axis=0)
