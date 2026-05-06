@@ -233,7 +233,6 @@ class PlanarSplatTrainRunner():
                 view_info_list=self.dataset.view_info_list,
                 H=self.H, W=self.W,
                 depth_trunc=self.depth_trunc,
-                bg_trim_enabled=True,
                 # The rest
                 **merge_config_coarse
             )
@@ -254,7 +253,6 @@ class PlanarSplatTrainRunner():
                     view_info_list=self.dataset.view_info_list,
                     H=self.H, W=self.W,
                     depth_trunc=self.depth_trunc,
-                    bg_trim_enabled=True,
                     # The rest
                     **merge_config_fine
                 )
