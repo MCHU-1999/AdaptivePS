@@ -31,7 +31,7 @@ def list_sorted_frames(data_dir):
     frame_files.sort(key=lambda p: int(os.path.splitext(os.path.basename(p))[0]))
     return frame_files
 
-def save_masks_by_frame_index(combined_mask_per_frame, frame_dir, output_root_dir, mask_dir_name):
+def save_masks_by_frame_index(combined_mask_per_frame, frame_dir, output_root_dir, mask_dir_name, mode:int=0):
     frame_files = list_sorted_frames(frame_dir)
     assert len(frame_files) == len(combined_mask_per_frame), f"Amount of files ({len(frame_files)}) and masks ({len(combined_mask_per_frame)}) inconsistent."
 
@@ -43,6 +43,8 @@ def save_masks_by_frame_index(combined_mask_per_frame, frame_dir, output_root_di
     with Image.open(sample_path) as img:
         img_res = (img.height, img.width)
 
+    nodata = np.ones(img_res, dtype=bool) if mode>0 else np.zeros(img_res, dtype=bool)
+
     saved = 0
     no_mask = 0
     # .items() preserves insertion order in Python 3.7+
@@ -52,7 +54,7 @@ def save_masks_by_frame_index(combined_mask_per_frame, frame_dir, output_root_di
             combined_mask = mask
         else:
             # logger.warning("Cannot find mask, exporting all 1 masks.")
-            combined_mask = np.ones(img_res, dtype=bool)
+            combined_mask = nodata
             no_mask += 1
 
         # Map the current iteration to the filename
@@ -195,8 +197,8 @@ def sam_inference_a_scene(scene):
     logger.info(f"SAM Inference on scene: {scene['exp_name']}")
     torch.inference_mode().__enter__()
 
-    # predictor = build_sam3_multiplex_video_predictor()
-    predictor = build_sam3_video_predictor()
+    predictor = build_sam3_multiplex_video_predictor()
+    # predictor = build_sam3_video_predictor()
 
     # Building masks
     combined_mask_per_frame = inference_bldg_video(predictor, scene)
@@ -205,6 +207,7 @@ def sam_inference_a_scene(scene):
         f"{scene['data_path']}/images",
         scene['data_path'],
         'bldg_masks',
+        mode=1
     )
     logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} of them are empty")
 
@@ -215,6 +218,7 @@ def sam_inference_a_scene(scene):
         f"{scene['data_path']}/images",
         scene['data_path'],
         'gnd_masks',
+        mode=0
     )
     logger.info(f"{scene['exp_name']}: saved {saved} gnd_masks, {no_mask} of them are empty")
 
@@ -224,8 +228,8 @@ def sam_inference_a_scene(scene):
 
 def sam_inference_all_scenes(scenes):
     torch.inference_mode().__enter__()
-    # predictor = build_sam3_multiplex_video_predictor()
-    predictor = build_sam3_video_predictor()
+    predictor = build_sam3_multiplex_video_predictor()
+    # predictor = build_sam3_video_predictor()
 
     for scene in scenes:
         logger.info(f"SAM Inference on scene: {scene['exp_name']}")
@@ -237,6 +241,7 @@ def sam_inference_all_scenes(scenes):
             f"{scene['data_path']}/images",
             scene['data_path'],
             'bldg_masks',
+            mode=1
         )
         logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} of them are empty")
 
@@ -247,6 +252,7 @@ def sam_inference_all_scenes(scenes):
             f"{scene['data_path']}/images",
             scene['data_path'],
             'gnd_masks',
+            mode=0
         )
         logger.info(f"{scene['exp_name']}: saved {saved} gnd_masks, {no_mask} of them are empty")
 
