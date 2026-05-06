@@ -1,4 +1,5 @@
 import os
+import contextlib
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -226,6 +227,12 @@ def _get_image_shape(frame_dir: str) -> Tuple[int, int]:
         return img.height, img.width
 
 
+def _free_cuda_memory():
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
+
 def _run_batched_image_inference_for_prompts(
     scene: Dict,
     model,
@@ -347,6 +354,10 @@ def sam_inference_a_scene(scene: Dict, model, transform, postprocessor, batch_si
     )
     logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} are empty")
 
+    # Release large intermediate tensors before running the second pass.
+    del bldg_masks
+    _free_cuda_memory()
+
     gnd_masks = inference_gnd_mask(scene, model, transform, postprocessor, batch_size=batch_size)
     saved, no_mask, _out_dir = _save_masks_by_filename(
         gnd_masks,
@@ -356,6 +367,9 @@ def sam_inference_a_scene(scene: Dict, model, transform, postprocessor, batch_si
         img_shape,
     )
     logger.info(f"{scene['exp_name']}: saved {saved} gnd_masks, {no_mask} are empty")
+
+    del gnd_masks
+    _free_cuda_memory()
 
 
 def sam_inference_all_scenes(scenes: List[Dict], batch_size: int = 50):
