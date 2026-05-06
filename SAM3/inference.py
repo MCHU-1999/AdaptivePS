@@ -195,44 +195,9 @@ def inference_gnd_video(predictor, scene):
 
 def sam_inference_a_scene(scene):
     logger.info(f"SAM Inference on scene: {scene['exp_name']}")
-    torch.inference_mode().__enter__()
-
-    predictor = build_sam3_multiplex_video_predictor()
-    # predictor = build_sam3_video_predictor()
-
-    # Building masks
-    combined_mask_per_frame = inference_bldg_video(predictor, scene)
-    saved, no_mask, out_dir = save_masks_by_frame_index(
-        combined_mask_per_frame,
-        f"{scene['data_path']}/images",
-        scene['data_path'],
-        'bldg_masks',
-        mode=1
-    )
-    logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} of them are empty")
-
-    # Ground masks
-    combined_mask_per_frame = inference_gnd_video(predictor, scene)
-    saved, no_mask, out_dir = save_masks_by_frame_index(
-        combined_mask_per_frame,
-        f"{scene['data_path']}/images",
-        scene['data_path'],
-        'gnd_masks',
-        mode=0
-    )
-    logger.info(f"{scene['exp_name']}: saved {saved} gnd_masks, {no_mask} of them are empty")
-
-    # after all inference is done, we can shutdown the predictor
-    # to free up the multi-GPU process group
-    predictor.shutdown()
-
-def sam_inference_all_scenes(scenes):
-    torch.inference_mode().__enter__()
-    predictor = build_sam3_multiplex_video_predictor()
-    # predictor = build_sam3_video_predictor()
-
-    for scene in scenes:
-        logger.info(f"SAM Inference on scene: {scene['exp_name']}")
+    with torch.inference_mode():
+        predictor = build_sam3_multiplex_video_predictor()
+        # predictor = build_sam3_video_predictor()
 
         # Building masks
         combined_mask_per_frame = inference_bldg_video(predictor, scene)
@@ -256,6 +221,42 @@ def sam_inference_all_scenes(scenes):
         )
         logger.info(f"{scene['exp_name']}: saved {saved} gnd_masks, {no_mask} of them are empty")
 
-    # after all inference is done, we can shutdown the predictor
-    # to free up the multi-GPU process group
-    predictor.shutdown()
+        # after all inference is done, we can shutdown the predictor
+        # to free up the multi-GPU process group
+        predictor.shutdown()
+
+def sam_inference_all_scenes(scenes):
+
+    # with torch.inference_mode():
+    with torch.inference_mode(), torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+        predictor = build_sam3_multiplex_video_predictor()
+        # predictor = build_sam3_video_predictor()
+
+        for scene in scenes:
+            logger.info(f"SAM Inference on scene: {scene['exp_name']}")
+
+            # Building masks
+            combined_mask_per_frame = inference_bldg_video(predictor, scene)
+            saved, no_mask, out_dir = save_masks_by_frame_index(
+                combined_mask_per_frame,
+                f"{scene['data_path']}/images",
+                scene['data_path'],
+                'bldg_masks',
+                mode=1
+            )
+            logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} of them are empty")
+
+            # Ground masks
+            combined_mask_per_frame = inference_gnd_video(predictor, scene)
+            saved, no_mask, out_dir = save_masks_by_frame_index(
+                combined_mask_per_frame,
+                f"{scene['data_path']}/images",
+                scene['data_path'],
+                'gnd_masks',
+                mode=0
+            )
+            logger.info(f"{scene['exp_name']}: saved {saved} gnd_masks, {no_mask} of them are empty")
+
+        # after all inference is done, we can shutdown the predictor
+        # to free up the multi-GPU process group
+        predictor.shutdown()
