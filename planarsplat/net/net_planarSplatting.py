@@ -459,13 +459,12 @@ class PlanarSplat_Network(nn.Module):
         else:
             return allmap
 
-    def draw_plane(self, suffix='', epoch=-1, to_unscaled_coord=True, plane_id=None, save_mesh=True):
+    def draw_plane(self, suffix='', epoch=-1, plane_id=None, save_mesh=True):
         plane_normal, _, plane_center, plane_radii, plane_rot_q, _, _ = self.get_plane_geometry()
         mesh_n = plot_rectangle_planes(
             plane_center, plane_normal, plane_radii, plane_rot_q, 
             epoch=epoch, 
             suffix='%s'%(suffix), 
-            to_unscaled_coord=to_unscaled_coord, 
             out_path=self.plot_dir if save_mesh else None,
             plane_id=plane_id, 
             color_type='normal')
@@ -473,20 +472,18 @@ class PlanarSplat_Network(nn.Module):
         #     plane_center, plane_normal, plane_radii, plane_rot_q, 
         #     epoch=epoch, 
         #     suffix='%s'%(suffix), 
-        #     to_unscaled_coord=to_unscaled_coord, 
         #     out_path=self.plot_dir if save_mesh else None,
         #     plane_id=plane_id, 
         #     color_type='prim')
         # return mesh_n, mesh_p
         return mesh_n
     
-    def draw_plane_debug(self, suffix='', epoch=-1, to_unscaled_coord=True, plane_id=None, save_mesh=True):
+    def draw_plane_debug(self, suffix='', epoch=-1, plane_id=None, save_mesh=True):
         plane_normal, _, plane_center, plane_radii, plane_rot_q, _, _ = self.get_plane_geometry()
         mesh_4 = plot_rectangle_planes(
             plane_center, plane_normal, plane_radii, plane_rot_q, 
             epoch=epoch, 
             suffix='%s'%(suffix), 
-            to_unscaled_coord=to_unscaled_coord, 
             out_path=self.plot_dir if save_mesh else None,
             plane_id=plane_id, 
             color_type='category4')
