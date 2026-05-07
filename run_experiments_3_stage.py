@@ -21,7 +21,6 @@ if __name__ == "__main__":
 
     ## DA3
     da3_inference_all_scenes(SCENES)
-    # da3_inference_a_scene(SCENES[2]) # DTU scan40
 
     ## PlanarSplatting
     for scene in SCENES:
