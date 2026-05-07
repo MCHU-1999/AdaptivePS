@@ -70,6 +70,10 @@ def run_planarsplatting(
         colmap_image_file_path = os.path.join(data_path, 'DA3_colmap/images.txt')
         if not os.path.exists(colmap_image_file_path):
             raise ValueError(f'The input path {colmap_image_file_path} does not exist.')
+        
+    pts_path = os.path.join(data_path, 'DA3_colmap/pointsBLDG.ply')
+    if not os.path.exists(pts_path):
+        pts_path = None
 
     USE_MASK = False
     if mask is not None:
@@ -169,6 +173,7 @@ def run_planarsplatting(
     put_if_not_none(conf, 'dataset.voxel_length', voxel_length)
     put_if_not_none(conf, 'dataset.sdf_trunc', sdf_trunc)
     put_if_not_none(conf, 'dataset.max_depth', max_depth)
+    put_if_not_none(conf, 'dataset.pts_path', pts_path)
     put_if_not_none(conf, 'train.expname', exp_name)
     put_if_not_none(conf, 'dataset.img_res', img_res)
 

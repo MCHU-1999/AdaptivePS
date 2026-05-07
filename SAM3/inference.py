@@ -1,6 +1,7 @@
 import os
 from PIL import Image
 import numpy as np
+from typing import Literal
 from loguru import logger
 import torch
 from sam3.model_builder import build_sam3_video_predictor, build_sam3_multiplex_video_predictor
@@ -78,7 +79,7 @@ def propagate_in_video(predictor, session_id):
         outputs_per_frame[response["frame_index"]] = response["outputs"]
     return outputs_per_frame
 
-def inference_bldg_video(predictor, scene):
+def inference_bldg_video(predictor, scene, mode: Literal["squash", "biggest"] = "biggest"):
     frame_dir = f"{scene['data_path']}/images"
     bldg_prompt = scene['bldg_prompt']
 
@@ -104,20 +105,33 @@ def inference_bldg_video(predictor, scene):
 
     # The propagation
     outputs_per_frame = propagate_in_video(predictor, session_id)
-    
-    # Remove smaller masks, preserve only the biggest one
-    mask_per_frame = {}
-    for frame_idx, outputs in outputs_per_frame.items():
-        masks = outputs.get("out_binary_masks")
-        if masks is not None and len(masks) > 0:
-            # Find the index of the mask with the most pixels
-            areas = [int((m > 0).sum()) for m in masks]
-            max_idx = np.argmax(areas)
-            
-            # Keep only that one mask
-            mask_per_frame[frame_idx] = masks[max_idx]
-        else:
-            mask_per_frame[frame_idx] = None
+
+    if mode == "biggest":
+        # Remove smaller masks, preserve only the biggest one
+        mask_per_frame = {}
+        for frame_idx, outputs in outputs_per_frame.items():
+            masks = outputs.get("out_binary_masks")
+            if masks is not None and len(masks) > 0:
+                # Find the index of the mask with the most pixels
+                areas = [int((m > 0).sum()) for m in masks]
+                max_idx = np.argmax(areas)
+                
+                # Keep only that one mask
+                mask_per_frame[frame_idx] = masks[max_idx]
+            else:
+                mask_per_frame[frame_idx] = None
+
+    if mode == "squash":
+        # Merge all masks
+        mask_per_frame = {}
+        for frame_idx, outputs in outputs_per_frame.items():
+            masks = outputs.get("out_binary_masks")
+            if masks is not None and len(masks) > 0:
+                mask_stack = np.stack(masks, axis=0)
+                mask_per_frame[frame_idx] = np.any(mask_stack > 0, axis=0)
+            else:
+                mask_per_frame[frame_idx] = None
+
     
     # finally, close the inference session to free its GPU resources
     # (you may start a new session on another video)
@@ -201,7 +215,7 @@ def sam_inference_a_scene(scene):
         predictor = build_sam3_video_predictor()
 
         # Building masks
-        combined_mask_per_frame = inference_bldg_video(predictor, scene)
+        combined_mask_per_frame = inference_bldg_video(predictor, scene, scene['bldg_mask_mode'])
         saved, no_mask, out_dir = save_masks_by_frame_index(
             combined_mask_per_frame,
             f"{scene['data_path']}/images",
@@ -237,7 +251,7 @@ def sam_inference_all_scenes(scenes):
             logger.info(f"SAM Inference on scene: {scene['exp_name']}")
 
             # Building masks
-            combined_mask_per_frame = inference_bldg_video(predictor, scene)
+            combined_mask_per_frame = inference_bldg_video(predictor, scene, scene['bldg_mask_mode'])
             saved, no_mask, out_dir = save_masks_by_frame_index(
                 combined_mask_per_frame,
                 f"{scene['data_path']}/images",

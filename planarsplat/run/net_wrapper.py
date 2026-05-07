@@ -16,7 +16,16 @@ class PlanarRecWrapper(nn.Module):
 
         self.init_type = self.plane_model_conf.get_string('init_type', default='mesh')
         # import pdb; pdb.set_trace()
-        if self.init_type == 'mesh':
+        if self.init_type == 'pts':
+            try:
+                logger.info('using points initialization......')
+                pts_path = self.conf.get_string('dataset.pts_path')
+                assert os.path.exists(pts_path), f'path: {pts_path} does not exist'
+                self.planarSplat.initialize_from_pts(pts_path)
+            except:
+                logger.info('using sphere initialization......')
+                self.planarSplat.initialize_from_sphere()
+        elif self.init_type == 'mesh':
             try:
                 logger.info('using mesh initialization......')
                 mesh_path = self.conf.get_string('dataset.mesh_path')

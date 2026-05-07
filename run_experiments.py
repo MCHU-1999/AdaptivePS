@@ -60,7 +60,8 @@ SCENES = [
     {
         "exp_name": "Barn",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn",
-        "bldg_prompt": "house in front",
+        "bldg_prompt": "The barn house in foreground",
+        "bldg_mask_mode": "biggest",
         "gnd_prompt": ["ground", "grass", "pavement"]
     },
     # DTU Datasets
@@ -68,12 +69,14 @@ SCENES = [
         "exp_name": "dtu-scan24",
         "data_path": f"{MY_STORAGE}/DTU/scan24",
         "bldg_prompt": "the buildings in foreground",
+        "bldg_mask_mode": "squash",
         "gnd_prompt": "white table surface"
     },
     {
         "exp_name": "dtu-scan40",
         "data_path": f"{MY_STORAGE}/DTU/scan40",
         "bldg_prompt": "the bricks",
+        "bldg_mask_mode": "squash",
         "gnd_prompt": "white table surface"
     },
     # Pexels Datssets
@@ -81,48 +84,56 @@ SCENES = [
         "exp_name": "church-cadeby",
         "data_path": f"{MY_STORAGE}/Pexels/church-cadeby",
         "bldg_prompt": "that stone masonry church building",
+        "bldg_mask_mode": "biggest",
         "gnd_prompt": ["ground", "grass"]
     },
     {
         "exp_name": "church-chesterfield",
         "data_path": f"{MY_STORAGE}/Pexels/church-chesterfield",
         "bldg_prompt": "the red building with a spire in center of frame",
+        "bldg_mask_mode": "biggest",
         "gnd_prompt": ["grass", "road", "pavement"]
     },
     {
         "exp_name": "killingbeck-cemetery",
         "data_path": f"{MY_STORAGE}/Pexels/killingbeck-cemetery",
         "bldg_prompt": "that stone masonry church building",
+        "bldg_mask_mode": "biggest",
         "gnd_prompt": ["ground", "grass", "road"]
     },
     {
         "exp_name": "moskee-haarlem",
         "data_path": f"{MY_STORAGE}/Pexels/moskee-haarlem",
         "bldg_prompt": "that building in the center of frame",
+        "bldg_mask_mode": "biggest",
         "gnd_prompt": ["water", "grass"]
     },
     {
         "exp_name": "tower-court",
         "data_path": f"{MY_STORAGE}/Pexels/tower-court",
         "bldg_prompt": "that building with clock-tower",
+        "bldg_mask_mode": "biggest",
         "gnd_prompt": ["ground", "road", "pavement"]
     },
     {
         "exp_name": "wotrubakirche",
         "data_path": f"{MY_STORAGE}/Pexels/wotrubakirche",
         "bldg_prompt": "the modernism concrete building",
+        "bldg_mask_mode": "biggest",
         "gnd_prompt": ["grass", "road", "pavement"]
     },
     {
         "exp_name": "elbphilharmonie",
         "data_path": f"{MY_STORAGE}/Pexels/elbphilharmonie",
         "bldg_prompt": "Elbphilharmonie, that modernism red-brick and glass building",
+        "bldg_mask_mode": "biggest",
         "gnd_prompt": ["water", "road", "pavement"]
     },
     {
         "exp_name": "krasna-horka-castle",
         "data_path": f"{MY_STORAGE}/Pexels/krasna-horka-castle",
         "bldg_prompt": "that castle building",
+        "bldg_mask_mode": "biggest",
         "gnd_prompt": ["ground", "grass", "pavement"]
     }
 ]

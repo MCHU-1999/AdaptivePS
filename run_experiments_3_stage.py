@@ -17,11 +17,11 @@ if __name__ == "__main__":
 
     ## SAM3
     # sam_inference_all_scenes(SCENES)
-    sam_inference_a_scene(SCENES[4]) # church-chesterfield
+    sam_inference_a_scene(SCENES[2]) # DTU scan40
 
     ## DA3
-    # da3_inference_all_scenes(SCENES)
-    da3_inference_a_scene(SCENES[4]) # church-chesterfield
+    da3_inference_all_scenes(SCENES)
+    # da3_inference_a_scene(SCENES[2]) # DTU scan40
 
     ## PlanarSplatting
     for scene in SCENES:

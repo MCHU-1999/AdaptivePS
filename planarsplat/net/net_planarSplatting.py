@@ -131,8 +131,10 @@ class PlanarSplat_Network(nn.Module):
     def initialize_from_mesh(self, mesh_path):
         self.initialized = True
         plane_num = self.plane_cfg.get_int('init_plane_num')
-        ratio = self.data_cfg.get_float('sphere_ratio', default=0.5)
-        radius = self.scene_bounding_sphere * ratio
+        # ratio = self.data_cfg.get_float('sphere_ratio', default=0.5)
+        # radius = self.scene_bounding_sphere * ratio
+        
+        radius = 10
         _, _, init_rot_q_xyAxis = model_util.get_plane_param_from_sphere(plane_num, radius)
 
         mesh = trimesh.load_mesh(mesh_path)
@@ -175,7 +177,58 @@ class PlanarSplat_Network(nn.Module):
 
          # =========================  plane visualization  ======================
         self.draw_plane(epoch=-1, suffix='initial-mesh')
-    
+
+    def initialize_from_pts(self, pts_path):
+        """Initialize from a point cloud PLY file"""
+        self.initialized = True
+        plane_num = self.plane_cfg.get_int('init_plane_num')
+        
+        # Load point cloud from PLY
+        point_cloud = trimesh.load(pts_path)
+        vertices = np.array(point_cloud.vertices)
+        
+        # Estimate normals from point cloud if not available
+        if hasattr(point_cloud, 'vertex_normals') and point_cloud.vertex_normals is not None:
+            normals = np.array(point_cloud.vertex_normals)
+        else:
+            # Fallback: use default up vector
+            logger.warning(f"No normals found in {pts_path}, using default normals")
+            normals = np.tile([0., 0., 1.], (vertices.shape[0], 1))
+        
+        # Sample plane_num points from the point cloud
+        if vertices.shape[0] > plane_num:
+            sampled_idx = np.random.choice(vertices.shape[0], size=plane_num, replace=False)
+        else:
+            sampled_idx = np.arange(vertices.shape[0])
+            if vertices.shape[0] < plane_num:
+                logger.warning(f"Point cloud has {vertices.shape[0]} points, but plane_num is {plane_num}. Using all points.")
+        
+        plane_centers = vertices[sampled_idx]
+        plane_normals = normals[sampled_idx]
+        
+        # Apply pose transformation
+        plane_centers = (plane_centers - self.pose_cfg.offset) * self.pose_cfg.scale
+        
+        # Convert to tensors
+        init_centers_new = torch.from_numpy(plane_centers).float()
+        init_normals_new = torch.from_numpy(plane_normals).float()
+        init_rot_q_normal_new = model_util.get_rotation_quaternion_of_normal(init_normals_new).cuda()
+        
+        # Compute xyAxis quaternions (aligned with normals, no in-plane rotation)
+        init_rot_angle_xyAxis = torch.zeros(plane_num, 1)
+        init_rot_q_xyAxis_new = model_util.get_rotation_quaternion_of_xyAxis(plane_num, angle=init_rot_angle_xyAxis).cuda()
+        
+        # =========================  define model parameters  ======================
+        self._plane_center = nn.Parameter(init_centers_new.cuda().requires_grad_(True))
+        self._plane_radii_xy_p = nn.Parameter(torch.Tensor(plane_num, 2).fill_(self.init_radii).cuda(), requires_grad=True)
+        self._plane_radii_xy_n = nn.Parameter(torch.Tensor(plane_num, 2).fill_(self.init_radii).cuda(), requires_grad=True)
+        self._plane_rot_q_normal_wxy = nn.Parameter(init_rot_q_normal_new[:, :3].cuda(), requires_grad=True)
+        self._plane_rot_q_xyAxis_w = nn.Parameter(init_rot_q_xyAxis_new[:, 0:1].cuda(), requires_grad=True)
+        self._plane_rot_q_xyAxis_z = nn.Parameter(init_rot_q_xyAxis_new[:, 3:4].cuda(), requires_grad=True)
+
+        # =========================  plane visualization  ======================
+        self.draw_plane(epoch=-1, suffix='initial-pts')
+        
     def initialize_as_zero(self, plane_num):
         self.initialized = True
         # =========================  define model parameters  ======================
