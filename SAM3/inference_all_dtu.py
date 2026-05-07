@@ -9,7 +9,7 @@ BD_SCAN_NUM = [
 SCENES = [
     # DTU Full Datasets
     {
-        "exp_name": "Barn",
+        "exp_name": "scan{scan_num}",
         "data_path": f"{MY_STORAGE}/DTU_full/Building/scan{scan_num}",
         "bldg_prompt": "houses/buildings",
         "gnd_prompt": "white table surface",
