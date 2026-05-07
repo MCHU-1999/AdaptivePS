@@ -1,5 +1,5 @@
 import os
-from SAM3.inference import set_hf_token_from_txt, sam_inference_all_scenes
+from inference import set_hf_token_from_txt, sam_inference_all_scenes
 
 # CONST
 MY_STORAGE = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
