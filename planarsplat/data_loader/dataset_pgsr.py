@@ -50,7 +50,6 @@ class ViewInfo(nn.Module):
         
         # Store image resolution and scene bounding sphere for processing
         self.img_res = gt_info['img_res']
-        self.scene_bounding_sphere = gt_info['scene_bounding_sphere']
         
         # Cache for loaded data (will be loaded on demand)
         self._rgb_cache = None
@@ -148,14 +147,11 @@ class SceneDatasetDemo:
         mono_mesh_dest: str,
         dataset_name: str = 'PGSR',
         tag: str = 'example',
-        scene_bounding_sphere: float = 5.0,
         mesh_pre_align: bool = False,
         **kwargs,
     ):
         self.dataset_name = dataset_name
         self.tag = tag
-        self.scene_bounding_sphere = scene_bounding_sphere
-        assert self.scene_bounding_sphere > 0.
         self.total_pixels = img_res[0] * img_res[1]
         self.img_res = img_res  # [height, width]
         self.mono_mesh_dest = mono_mesh_dest
@@ -258,7 +254,6 @@ class SceneDatasetDemo:
                 "depth_path": depth_paths[idx],
                 "normal_path": normal_paths[idx],
                 "img_res": img_res,
-                "scene_bounding_sphere": self.scene_bounding_sphere,
                 'index': idx
             }
                 

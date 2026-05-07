@@ -32,7 +32,6 @@ def merge_plane(
     bg_trim_max_bg_ratio: float=0.4,
 ):
     torch.use_deterministic_algorithms(False)
-    pose_cfg = net.planarSplat.pose_cfg
     min_pts_num = max((0.1/space_resolution)**2, min_pts_num)
 
     ## get parameters of 3D plane primitives
@@ -48,7 +47,6 @@ def merge_plane(
         plane_center, 
         plane_radii, 
         plane_rot_q, 
-        pose_cfg, 
         space_resolution=space_resolution,
         plane_ins_id=plane_ins_id)
     
@@ -833,7 +831,6 @@ def sample_pts_from_GivenPlanePrim(
         plane_center, 
         plane_radii, 
         plane_rot_q, 
-        pose_cfg, 
         space_resolution=0.05, 
         plane_ins_id=None
         ):
@@ -856,9 +853,7 @@ def sample_pts_from_GivenPlanePrim(
     # max((0.1 / 0.02)^2, 25) = 25
     # So a standalone 0.01 x 0.01 plane (sampled as 9 points) fails 9 < 25 and gets removed.
 
-    scene_scale = pose_cfg.scale
-    scene_offset = pose_cfg.offset
-    sample_interval = space_resolution * scene_scale  # to normalized space
+    sample_interval = space_resolution
 
     rot_q = F.normalize(plane_rot_q, dim=-1)  # n, 4
     rot_matrix = quat_to_rot(rot_q)  # n, 3, 3
@@ -911,9 +906,6 @@ def sample_pts_from_GivenPlanePrim(
             cur_pts_num += nx*ny
 
     pts = torch.cat(pts, dim=0).detach()
-    pts /= scene_scale
-    scene_offset = torch.tensor(scene_offset).cuda().reshape(1, 3)
-    pts += scene_offset
 
     faces = faces.detach()
     normals = torch.cat(normals, dim=0).detach()

@@ -36,7 +36,7 @@ class random_color(object):
         ret_color[0] *= 0
         return ret_color
 
-def plot_rectangle_planes(plane_centers, plane_normals, plane_radii, rot_q, epoch=-1, suffix='', to_unscaled_coord=True, pose_cfg=None, out_path=None, plane_id=None, color_type=''):
+def plot_rectangle_planes(plane_centers, plane_normals, plane_radii, rot_q, epoch=-1, suffix='', out_path=None, plane_id=None, color_type=''):
     plane_normals_standard = torch.zeros_like(plane_normals)
     plane_normals_standard[..., -1] = 1
     if plane_radii.shape[-1] == 2:
@@ -64,13 +64,6 @@ def plot_rectangle_planes(plane_centers, plane_normals, plane_radii, rot_q, epoc
     vertices_transformed = torch.bmm(rot_matrix, vertices_standard.permute(0, 2, 1)).permute(0, 2, 1) + plane_centers[:, None]  # n, 4, 3
     vertices_all = vertices_transformed.reshape(-1, 3).detach().cpu().numpy()  # 4n, 3
     
-    if to_unscaled_coord:
-        assert pose_cfg is not None
-        vertices_all /= pose_cfg.scale
-        vertices_all += pose_cfg.offset
-    else:
-        suffix = suffix + '_normalized'
-
     N = vertices_all.shape[0] // 4
     triangle_mesh = o3d.geometry.TriangleMesh()
     triangle_mesh.vertices = o3d.utility.Vector3dVector(vertices_all)

@@ -20,7 +20,6 @@ class PlanarSplat_Network(nn.Module):
         self.bg = torch.tensor([0., 0., 0.]).cuda()
         # ================================== get config ======================
         self.plane_cfg = cfg.get_config('plane_model')
-        self.pose_cfg = cfg.get_config('pose')
         self.data_cfg = cfg.get_config('dataset')
         self.plot_dir = plot_dir
         # ---------debug
@@ -29,7 +28,7 @@ class PlanarSplat_Network(nn.Module):
         # data and scene setting
         self.H = self.data_cfg.img_res[0]
         self.W = self.data_cfg.img_res[1]
-        self.scene_bounding_sphere = self.data_cfg.get_float('scene_bounding_sphere')
+        self.init_sphere_radius = self.data_cfg.get_float('init_sphere_radius')
         # training setting
         self.max_total_iters = cfg.get_int('train.max_total_iters', default=5000)
         self.coarse_stage_ite = cfg.get_int('train.coarse_stage_ite')
@@ -92,9 +91,7 @@ class PlanarSplat_Network(nn.Module):
         logger.info("Initializing planes from sphere...")
         self.initialized = True
         plane_num = self.plane_cfg.get_int('init_plane_num')
-        ratio = self.data_cfg.get_float('sphere_ratio', default=0.5)
-        radius = self.scene_bounding_sphere * ratio
-        init_centers, init_rot_q_normal, init_rot_q_xyAxis = model_util.get_plane_param_from_sphere(plane_num, radius)
+        init_centers, init_rot_q_normal, init_rot_q_xyAxis = model_util.get_plane_param_from_sphere(plane_num, self.init_sphere_radius)
 
         # =========================  define model parameters  ======================
         self._plane_center = nn.Parameter(init_centers.cuda().requires_grad_(True))
@@ -131,29 +128,56 @@ class PlanarSplat_Network(nn.Module):
     def initialize_from_mesh(self, mesh_path):
         self.initialized = True
         plane_num = self.plane_cfg.get_int('init_plane_num')
-        # ratio = self.data_cfg.get_float('sphere_ratio', default=0.5)
-        # radius = self.scene_bounding_sphere * ratio
+        vertex_search_radius = self.init_sphere_radius * 1.5
         
-        radius = 10
-        _, _, init_rot_q_xyAxis = model_util.get_plane_param_from_sphere(plane_num, radius)
+        _, _, init_rot_q_xyAxis = model_util.get_plane_param_from_sphere(plane_num, self.init_sphere_radius)
 
         mesh = trimesh.load_mesh(mesh_path)
+        
+        # =========================  FAST XY EXTENT MASKING  ======================
+        valid_vertices_mask = (
+            (mesh.vertices[:, 0] >= -vertex_search_radius) & 
+            (mesh.vertices[:, 0] <= vertex_search_radius) &
+            (mesh.vertices[:, 1] >= -vertex_search_radius) & 
+            (mesh.vertices[:, 1] <= vertex_search_radius)
+        )
+        
+        # Keep faces where ALL 3 vertices are inside the bounding box
+        valid_faces_mask = valid_vertices_mask[mesh.faces].all(axis=1)
+        mesh.update_faces(valid_faces_mask)
+        mesh.remove_unreferenced_vertices() # Re-indexes faces automatically
+        
+        if len(mesh.faces) == 0:
+            raise ValueError(f"Masking removed all faces. No geometry found in XY extent +/- {vertex_search_radius}")
+        # =========================================================================
+
         target_vertex_count = min(plane_num * 2, 5000)
+        
+        # Decimation now runs ONLY on the remaining cropped faces
         simplified_mesh = mesh.simplify_quadratic_decimation(target_vertex_count)
+        
         vertices = simplified_mesh.vertices
         normals = simplified_mesh.vertex_normals
         faces = simplified_mesh.faces
+
+        # Critical Note: If the masking drastically reduces the face count below target_vertex_count,
+        # this existing concatenation logic will duplicate faces.
         if faces.shape[0] < target_vertex_count:
             faces = np.concatenate((faces, faces[:target_vertex_count-faces.shape[0]]), axis=0)
         elif faces.shape[0] > target_vertex_count:
             faces = faces[:target_vertex_count]
         else:
             pass
+
         faces_v = vertices[faces.reshape(-1)].reshape(target_vertex_count, 3, 3)
         faces_n = normals[faces.reshape(-1)].reshape(target_vertex_count, 3, 3)
-        plane_centers = (np.mean(faces_v, axis=1) - self.pose_cfg.offset) * self.pose_cfg.scale
+        
+        plane_centers = np.mean(faces_v, axis=1)
         plane_normals = np.mean(faces_n, axis=1)
-        plane_radii = np.mean(np.linalg.norm(plane_centers[:, None] -(faces_v- self.pose_cfg.offset) * self.pose_cfg.scale, axis=-1), axis=-1)
+        plane_radii = np.mean(np.linalg.norm(
+            plane_centers[:, None] - faces_v,
+            axis=-1
+        ), axis=-1)
 
         sampled_idx = random.sample(range(0, target_vertex_count), plane_num)
         plane_centers = plane_centers[sampled_idx]
@@ -178,57 +202,60 @@ class PlanarSplat_Network(nn.Module):
          # =========================  plane visualization  ======================
         self.draw_plane(epoch=-1, suffix='initial-mesh')
 
-    def initialize_from_pts(self, pts_path):
-        """Initialize from a point cloud PLY file"""
-        self.initialized = True
-        plane_num = self.plane_cfg.get_int('init_plane_num')
+    # def initialize_from_mesh(self, mesh_path):
+    #     self.initialized = True
+    #     plane_num = self.plane_cfg.get_int('init_plane_num')
+    #     vertex_search_radius = self.init_sphere_radius * 1.5
         
-        # Load point cloud from PLY
-        point_cloud = trimesh.load(pts_path)
-        vertices = np.array(point_cloud.vertices)
-        
-        # Estimate normals from point cloud if not available
-        if hasattr(point_cloud, 'vertex_normals') and point_cloud.vertex_normals is not None:
-            normals = np.array(point_cloud.vertex_normals)
-        else:
-            # Fallback: use default up vector
-            logger.warning(f"No normals found in {pts_path}, using default normals")
-            normals = np.tile([0., 0., 1.], (vertices.shape[0], 1))
-        
-        # Sample plane_num points from the point cloud
-        if vertices.shape[0] > plane_num:
-            sampled_idx = np.random.choice(vertices.shape[0], size=plane_num, replace=False)
-        else:
-            sampled_idx = np.arange(vertices.shape[0])
-            if vertices.shape[0] < plane_num:
-                logger.warning(f"Point cloud has {vertices.shape[0]} points, but plane_num is {plane_num}. Using all points.")
-        
-        plane_centers = vertices[sampled_idx]
-        plane_normals = normals[sampled_idx]
-        
-        # Apply pose transformation
-        plane_centers = (plane_centers - self.pose_cfg.offset) * self.pose_cfg.scale
-        
-        # Convert to tensors
-        init_centers_new = torch.from_numpy(plane_centers).float()
-        init_normals_new = torch.from_numpy(plane_normals).float()
-        init_rot_q_normal_new = model_util.get_rotation_quaternion_of_normal(init_normals_new).cuda()
-        
-        # Compute xyAxis quaternions (aligned with normals, no in-plane rotation)
-        init_rot_angle_xyAxis = torch.zeros(plane_num, 1)
-        init_rot_q_xyAxis_new = model_util.get_rotation_quaternion_of_xyAxis(plane_num, angle=init_rot_angle_xyAxis).cuda()
-        
-        # =========================  define model parameters  ======================
-        self._plane_center = nn.Parameter(init_centers_new.cuda().requires_grad_(True))
-        self._plane_radii_xy_p = nn.Parameter(torch.Tensor(plane_num, 2).fill_(self.init_radii).cuda(), requires_grad=True)
-        self._plane_radii_xy_n = nn.Parameter(torch.Tensor(plane_num, 2).fill_(self.init_radii).cuda(), requires_grad=True)
-        self._plane_rot_q_normal_wxy = nn.Parameter(init_rot_q_normal_new[:, :3].cuda(), requires_grad=True)
-        self._plane_rot_q_xyAxis_w = nn.Parameter(init_rot_q_xyAxis_new[:, 0:1].cuda(), requires_grad=True)
-        self._plane_rot_q_xyAxis_z = nn.Parameter(init_rot_q_xyAxis_new[:, 3:4].cuda(), requires_grad=True)
+    #     _, _, init_rot_q_xyAxis = model_util.get_plane_param_from_sphere(plane_num, self.init_sphere_radius)
 
-        # =========================  plane visualization  ======================
-        self.draw_plane(epoch=-1, suffix='initial-pts')
+    #     mesh = trimesh.load_mesh(mesh_path)
         
+    #     target_vertex_count = min(plane_num * 2, 5000)
+    #     simplified_mesh = mesh.simplify_quadratic_decimation(target_vertex_count)
+    #     vertices = simplified_mesh.vertices
+    #     normals = simplified_mesh.vertex_normals
+    #     faces = simplified_mesh.faces
+
+    #     if faces.shape[0] < target_vertex_count:
+    #         faces = np.concatenate((faces, faces[:target_vertex_count-faces.shape[0]]), axis=0)
+    #     elif faces.shape[0] > target_vertex_count:
+    #         faces = faces[:target_vertex_count]
+    #     else:
+    #         pass
+
+    #     faces_v = vertices[faces.reshape(-1)].reshape(target_vertex_count, 3, 3)
+    #     faces_n = normals[faces.reshape(-1)].reshape(target_vertex_count, 3, 3)
+    #     plane_centers = np.mean(faces_v, axis=1)
+    #     plane_normals = np.mean(faces_n, axis=1)
+    #     plane_radii = np.mean(np.linalg.norm(
+    #         plane_centers[:, None] - faces_v,
+    #         axis=-1
+    #     ), axis=-1)
+
+    #     sampled_idx = random.sample(range(0, target_vertex_count), plane_num)
+    #     plane_centers = plane_centers[sampled_idx]
+    #     plane_normals = plane_normals[sampled_idx]
+    #     plane_radii = plane_radii[sampled_idx]
+
+    #     init_centers_new = torch.from_numpy(plane_centers).float()
+    #     init_normals_new = torch.from_numpy(plane_normals).float()
+    #     init_rot_q_normal_new = model_util.get_rotation_quaternion_of_normal(init_normals_new).cuda()
+    #     init_rot_q_xyAxis_new = init_rot_q_xyAxis
+    #     init_radii = torch.from_numpy(plane_radii.reshape(-1, 1))
+    #     init_radii = torch.cat([init_radii, init_radii], dim=-1).float() * 0.3
+
+    #     # =========================  define model parameters  ======================
+    #     self._plane_center = nn.Parameter(init_centers_new.cuda().requires_grad_(True))
+    #     self._plane_radii_xy_p = nn.Parameter(init_radii.cuda(), requires_grad=True)
+    #     self._plane_radii_xy_n = nn.Parameter(init_radii.cuda(), requires_grad=True)
+    #     self._plane_rot_q_normal_wxy = nn.Parameter(init_rot_q_normal_new[:, :3].cuda(), requires_grad=True)
+    #     self._plane_rot_q_xyAxis_w = nn.Parameter(init_rot_q_xyAxis_new[:, 0:1].cuda(), requires_grad=True)
+    #     self._plane_rot_q_xyAxis_z = nn.Parameter(init_rot_q_xyAxis_new[:, 3:4].cuda(), requires_grad=True)
+
+    #      # =========================  plane visualization  ======================
+    #     self.draw_plane(epoch=-1, suffix='initial-mesh')
+
     def initialize_as_zero(self, plane_num):
         self.initialized = True
         # =========================  define model parameters  ======================
@@ -439,7 +466,6 @@ class PlanarSplat_Network(nn.Module):
             epoch=epoch, 
             suffix='%s'%(suffix), 
             to_unscaled_coord=to_unscaled_coord, 
-            pose_cfg=self.pose_cfg, 
             out_path=self.plot_dir if save_mesh else None,
             plane_id=plane_id, 
             color_type='normal')
@@ -448,7 +474,6 @@ class PlanarSplat_Network(nn.Module):
         #     epoch=epoch, 
         #     suffix='%s'%(suffix), 
         #     to_unscaled_coord=to_unscaled_coord, 
-        #     pose_cfg=self.pose_cfg, 
         #     out_path=self.plot_dir if save_mesh else None,
         #     plane_id=plane_id, 
         #     color_type='prim')
@@ -462,7 +487,6 @@ class PlanarSplat_Network(nn.Module):
             epoch=epoch, 
             suffix='%s'%(suffix), 
             to_unscaled_coord=to_unscaled_coord, 
-            pose_cfg=self.pose_cfg, 
             out_path=self.plot_dir if save_mesh else None,
             plane_id=plane_id, 
             color_type='category4')

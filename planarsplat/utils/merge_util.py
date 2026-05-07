@@ -32,7 +32,6 @@ def merge_plane(
     min_pts_num: int=25,
 ):
     torch.use_deterministic_algorithms(False)
-    pose_cfg = net.planarSplat.pose_cfg
     min_pts_num = max((0.1/space_resolution)**2, min_pts_num)
 
     ## get parameters of 3D plane primitives
@@ -48,7 +47,6 @@ def merge_plane(
         plane_center, 
         plane_radii, 
         plane_rot_q, 
-        pose_cfg, 
         space_resolution=space_resolution,
         plane_ins_id=plane_ins_id)
     
@@ -83,7 +81,6 @@ def merge_plane(
         plane_rot_q, 
         epoch=-1, 
         suffix='tmp_NG', 
-        pose_cfg=pose_cfg, 
         out_path=net.planarSplat.plot_dir, 
         plane_id=plane_ins_id_new, 
         color_type='prim')
@@ -127,7 +124,6 @@ def merge_plane(
         plane_rot_q, 
         epoch=-1, 
         suffix='tmp_NG_cc', 
-        pose_cfg=pose_cfg, 
         out_path=net.planarSplat.plot_dir, 
         plane_id=plane_ins_id_new, 
         color_type='prim')
@@ -177,7 +173,6 @@ def merge_plane(
         plane_rot_q, 
         epoch=-1, 
         suffix='tmp_NG_cc_DG_mf', 
-        pose_cfg=pose_cfg, 
         out_path=net.planarSplat.plot_dir, 
         plane_id=plane_ins_id_new, 
         color_type='prim')
@@ -226,7 +221,6 @@ def merge_plane(
     #     plane_rot_q, 
     #     epoch=-1, 
     #     suffix='tmp_final', 
-    #     pose_cfg=pose_cfg, 
     #     out_path=net.planarSplat.plot_dir, 
     #     plane_id=plane_ins_id_new, 
     #     color_type='prim')
@@ -970,16 +964,13 @@ def sample_pts_from_GivenPlanePrim(
         plane_center, 
         plane_radii, 
         plane_rot_q, 
-        pose_cfg, 
         space_resolution=0.05, 
         plane_ins_id=None
         ):
     """
     space_resolution=0.05 --> 0.05 meter
     """
-    scene_scale = pose_cfg.scale
-    scene_offset = pose_cfg.offset
-    sample_interval = space_resolution * scene_scale  # to normalized space
+    sample_interval = space_resolution
 
     rot_q = F.normalize(plane_rot_q, dim=-1)  # n, 4
     rot_matrix = quat_to_rot(rot_q)  # n, 3, 3
@@ -1032,9 +1023,6 @@ def sample_pts_from_GivenPlanePrim(
             cur_pts_num += nx*ny
 
     pts = torch.cat(pts, dim=0).detach()
-    pts /= scene_scale
-    scene_offset = torch.tensor(scene_offset).cuda().reshape(1, 3)
-    pts += scene_offset
 
     faces = faces.detach()
     normals = torch.cat(normals, dim=0).detach()

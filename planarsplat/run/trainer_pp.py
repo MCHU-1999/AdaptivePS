@@ -172,8 +172,10 @@ class PlanarSplatTrainRunner():
                 plot_plane_img(self)
                 self.net.train()
             
-            if iter > 0 and iter % self.check_vis_freq_ite == 0:
+            if iter > self.coarse_stage_ite and iter % self.check_vis_freq_ite == 0:
                 self.check_plane_visibility_cuda_plus_plus()
+            elif iter > 0 and iter % self.check_vis_freq_ite == 0:
+                self.check_plane_visibility_cuda()
         
         self.check_plane_visibility_cuda_plus_plus(lastdog=True)
         save_checkpoints(self, iter=self.iter_step, only_latest=False)
@@ -188,7 +190,7 @@ class PlanarSplatTrainRunner():
         # os.makedirs(save_root, exist_ok=True)
 
         ## prune planes whose maximum radii lower than the threshold
-        self.net.prune_small_plane(min_radii=0.02 * self.net.planarSplat.pose_cfg.scale)
+        self.net.prune_small_plane(min_radii=0.02)
         logger.info("number of 3D planar primitives = %d"%(self.net.planarSplat.get_plane_num()))
 
         # # The 3rd version, but using mesh to trim is kinda unfair

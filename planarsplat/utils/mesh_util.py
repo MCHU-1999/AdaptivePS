@@ -90,14 +90,10 @@ def get_coarse_mesh(
     noise, removes outliers, and creates a cleaned-up "consensus" geometry of the scene.
     This resulting mesh is then used as a geometric prior for subsequent merging steps.
     """
-    scene_scale = net.planarSplat.pose_cfg.scale
-    scene_offset = net.planarSplat.pose_cfg.offset
     poses = []
     intrinsics = []
     for view_info in view_info_list:
         pose = view_info.pose.clone()
-        pose[:3, 3] /= scene_scale
-        pose[:3, 3] += torch.tensor(scene_offset).to(pose.device)
         poses.append(pose.cpu().numpy())
         intrinsics.append(view_info.intrinsic[:3, :3].cpu().numpy())
 
@@ -106,7 +102,7 @@ def get_coarse_mesh(
         with torch.no_grad():
             allmap = net.planarSplat(view_info_list[iter], 50000)
         # get rendered maps
-        depth = allmap[0:1].squeeze().reshape(H, W).cpu().numpy() / scene_scale
+        depth = allmap[0:1].squeeze().reshape(H, W).cpu().numpy()
         depths.append(depth)
 
     mesh = refuse_mesh(depths, poses, intrinsics, H, W, voxel_length=voxel_length, sdf_trunc=sdf_trunc, depth_trunc=depth_trunc)

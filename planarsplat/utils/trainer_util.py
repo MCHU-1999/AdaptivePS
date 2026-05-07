@@ -33,10 +33,6 @@ def plot_plane_img(trainer, plot_img_idx: int=0, prefix: str='', pcd_on: bool=Fa
         ray_dirs = view_info.ray_dirs
         plane_surf = cam_loc.view(1, 3) + rendered_depth.view(-1, 1) / depth_scale.view(-1, 1) * ray_dirs.view(-1, 3)
         plane_surf_np = plane_surf.detach().cpu().numpy()
-        scene_scale = trainer.conf.pose.scale
-        scene_offset = np.asarray(trainer.conf.pose.offset)
-        plane_surf_np /= scene_scale
-        plane_surf_np += scene_offset
 
     # get gt
     gt_rgb_np = (view_info.rgb.reshape(trainer.H, trainer.W, 3) * 255).cpu().numpy().astype(np.uint8)
