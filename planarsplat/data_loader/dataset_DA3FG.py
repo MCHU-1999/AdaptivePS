@@ -162,6 +162,11 @@ class SceneDatasetDemo:
                 fg_mask = np.array(Image.open(fg_mask_path))  # h, w, 1
                 fg_mask = (fg_mask > 0.5).astype(bool)
                 fg_mask = np.squeeze(fg_mask)
+
+                if np.all(fg_mask):
+                    # mask is all true, don't count
+                    continue
+                
                 valid_depth = depth[(depth > 0) & fg_mask]
                 p95 = np.percentile(valid_depth, 95)
                 
