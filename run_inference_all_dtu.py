@@ -1,0 +1,74 @@
+import os
+from DA3.inference_dtu import da3_inference_all_scenes, da3_inference_a_scene
+from SAM3.inference import set_hf_token_from_txt, sam_inference_all_scenes, sam_inference_a_scene
+
+# CONST
+MY_STORAGE = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
+BD_NUM = [
+    6, 9, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 28, 29, 43, 44, 46
+]
+BD_SCENES = [
+    # DTU Building Datasets
+    {
+        "exp_name": f"scan{scan_num}",
+        "data_path": f"{MY_STORAGE}/DTU_ALL/Building/scan{scan_num}",
+        "bldg_prompt": "houses/buildings",
+        # "gnd_prompt": "white table surface",
+        "bldg_mask_mode": "squash"
+    } for scan_num in BD_NUM
+]
+BD_LIKE_SCENES = [
+    # DTU Building-like Datasets
+    {
+        "exp_name": "scan10",
+        "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan10",
+        "bldg_prompt": "box",
+        # "gnd_prompt": "white table surface",
+        "bldg_mask_mode": "squash"
+    },
+    {
+        "exp_name": "scan13",
+        "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan13",
+        "bldg_prompt": "box",
+        # "gnd_prompt": "white table surface",
+        "bldg_mask_mode": "squash"
+    },
+    {
+        "exp_name": "scan34",
+        "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan34",
+        "bldg_prompt": "bricks",
+        # "gnd_prompt": "white table surface",
+        "bldg_mask_mode": "squash"
+    },
+    {
+        "exp_name": "scan40",
+        "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan40",
+        "bldg_prompt": "bricks",
+        # "gnd_prompt": "white table surface",
+        "bldg_mask_mode": "squash"
+    },
+    {
+        "exp_name": "scan47",
+        "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan47",
+        "bldg_prompt": "wave signal generator",
+        # "gnd_prompt": "white table surface",
+        "bldg_mask_mode": "squash"
+    },
+    {
+        "exp_name": "scan77",
+        "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan77",
+        "bldg_prompt": "Moka pot",
+        # "gnd_prompt": "white table surface",
+        "bldg_mask_mode": "squash"
+    },
+]
+
+
+if __name__ == "__main__":
+    # Set HF token
+    token_path = os.path.join(os.path.dirname(__file__), "SAM3", "hf_token.txt")
+    set_hf_token_from_txt(token_path)
+
+    AllDTU = BD_SCENES + BD_LIKE_SCENES
+    sam_inference_all_scenes(AllDTU)
+    da3_inference_all_scenes(AllDTU)

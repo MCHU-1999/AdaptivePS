@@ -225,6 +225,11 @@ def sam_inference_a_scene(scene):
         )
         logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} of them are empty")
 
+        if not scene.get('gnd_prompt'):
+            logger.info(f"{scene['exp_name']} has no gnd_prompt, return.")
+            predictor.shutdown()
+            return
+
         # Ground masks
         combined_mask_per_frame = inference_gnd_video(predictor, scene)
         saved, no_mask, out_dir = save_masks_by_frame_index(
@@ -260,6 +265,10 @@ def sam_inference_all_scenes(scenes):
                 mode=1
             )
             logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} of them are empty")
+
+            if not scene.get('gnd_prompt'):
+                logger.info(f"{scene['exp_name']} has no gnd_prompt, moving on.")
+                continue
 
             # Ground masks
             combined_mask_per_frame = inference_gnd_video(predictor, scene)
