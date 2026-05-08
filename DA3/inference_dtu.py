@@ -42,7 +42,7 @@ def read_dtu_dataset(data_dir, camera_npz_path):
     img_files = sorted(img_files, key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
 
     img_paths_list = img_files
-    img_name_list = [os.path.basename(f) for f in img_files]
+    img_name_list = [os.path.splitext(os.path.basename(f))[0] for f in img_files]
     
     # Create intrinsics list by repeating intrinsic matrix for each image
     num_images = len(img_files)

@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from datetime import datetime
 from tqdm import tqdm
 import torch
@@ -16,8 +17,7 @@ from utils.mesh_util import get_coarse_mesh
 from utils.merge_util_new import merge_plane
 from utils.loss_util import normal_loss, metric_depth_loss
 from utils.model_util import split_planes_xy_via_mask
-import trimesh
-import rerun as rr
+
 
 class PlanarSplatTrainRunner():
     def __init__(self, **kwargs):
@@ -27,6 +27,7 @@ class PlanarSplatTrainRunner():
         # self.expname, self.timestamp, is_continue = get_train_param(kwargs, self.conf)
         self.expdir, self.plane_plots_dir, self.checkpoints_path, self.model_subdir = prepare_folders(kwargs, self.expname, self.timestamp)
         setup_logging(os.path.join(self.expdir, 'train.log'))
+        self.loss_sink_id = logger.add(os.path.join(self.expdir, 'loss.log'), format="{time:YYYY-MM-DD HH:mm:ss} | {message}", filter=lambda record: "loss" in record["extra"])
         kwargs['data']['expdir'] = self.expdir
         
         logger.info('Shell command : {0}'.format(' '.join(sys.argv)))
@@ -78,9 +79,19 @@ class PlanarSplatTrainRunner():
         self.data_order = self.conf.get_string('train.data_order')
 
     def run(self):
+        start_time = time.time()
         self.train()
+        train_time = time.time() - start_time
+        logger.info(f'Training finished in {train_time/60:.2f} minutes.')
+        
+        start_time = time.time()
         self.merger()
-        logger.info(f'\n====================\nFinished\n====================\n\n')
+        merge_time = time.time() - start_time
+        logger.info(f'Merging finished in {merge_time/60:.2f} minutes.')
+        
+        logger.info(f'\n====================\nFinished\n  Training: {train_time/60:.2f} minutes\n  Merging: {merge_time/60:.2f} minutes\n  Total: {(train_time+merge_time)/60:.2f} mins\n====================\n\n')
+        if hasattr(self, 'loss_sink_id'):
+            logger.remove(self.loss_sink_id)
     
     def train(self):
         logger.info("Training...")
@@ -98,6 +109,7 @@ class PlanarSplatTrainRunner():
         view_info_list = None
         progress_bar = tqdm(range(self.start_iter, self.max_total_iters+1), desc="Training progress")
         calculate_plane_depth(self)
+        ema_loss = None
         for iter in range(self.start_iter, self.max_total_iters + 1):
             self.iter_step = iter
             # ======================================= process planes
@@ -148,6 +160,12 @@ class PlanarSplatTrainRunner():
             self.net.optimizer.step()
             self.net.update_grad_stats()
             self.net.regularize_plane_shape(empty_cache=False)
+            
+            if ema_loss is None:
+                ema_loss = loss_final.item()
+            else:
+                ema_loss = 0.9 * ema_loss + 0.1 * loss_final.item()
+            
             image_index = view_info.index
             self.dataset.view_info_list[image_index].plane_depth = depth.detach().clone()
 
@@ -160,6 +178,7 @@ class PlanarSplatTrainRunner():
                     }
                     progress_bar.set_postfix(loss_dict)
                     progress_bar.update(100)
+                    logger.bind(loss=True).info(f"Iteration: {iter:05d} | Loss (EMA): {ema_loss:.4f}")
                 if iter == self.max_total_iters:
                     progress_bar.close()
             

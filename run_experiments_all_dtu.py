@@ -1,6 +1,8 @@
 import os
 from DA3.inference_dtu import da3_inference_all_scenes, da3_inference_a_scene
 from SAM3.inference import set_hf_token_from_txt, sam_inference_all_scenes, sam_inference_a_scene
+from run_DA3FG import run_planarsplatting
+
 
 # CONST
 MY_STORAGE = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
@@ -70,5 +72,27 @@ if __name__ == "__main__":
     set_hf_token_from_txt(token_path)
 
     AllDTU = BD_SCENES + BD_LIKE_SCENES
-    sam_inference_all_scenes(AllDTU)
-    da3_inference_all_scenes(AllDTU)
+
+    ## SAM3
+    # sam_inference_all_scenes(AllDTU)
+
+    ## DA3
+    # da3_inference_all_scenes(AllDTU)
+
+    ## PlanarSplatting
+    for scene in BD_SCENES:
+        run_planarsplatting(
+            data_path=scene['data_path'],
+            exp_name=scene['exp_name'],
+            out_path="A3_progress/DTU-Building",
+            conf_path="configs/DA3FG++DTU.conf",
+            mask="bldg_masks"
+        )
+    for scene in BD_LIKE_SCENES:
+        run_planarsplatting(
+            data_path=scene['data_path'],
+            exp_name=scene['exp_name'],
+            out_path="A3_progress/DTU-Building-like",
+            conf_path="configs/DA3FG++DTU.conf",
+            mask="bldg_masks"
+        )
