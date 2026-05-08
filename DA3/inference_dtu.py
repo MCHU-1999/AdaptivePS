@@ -87,6 +87,7 @@ def da3_inference_a_scene(scene):
         },
         show_cameras=False,
         conf_thresh_percentile=40,
+        num_max_points=100_000,
     )
 
     # # FOR DEBUG
@@ -132,6 +133,7 @@ def da3_inference_all_scenes(scenes):
             },
             show_cameras=False,
             conf_thresh_percentile=40,
+            num_max_points=100_000,
         )
 
     return None
