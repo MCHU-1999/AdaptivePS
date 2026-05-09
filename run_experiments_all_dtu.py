@@ -99,10 +99,10 @@ if __name__ == "__main__":
     #         mask="bldg_masks"
     #     )
 
-    run_planarsplatting(
-        data_path=BD_SCENES[0]['data_path'],
-        exp_name=BD_SCENES[0]['exp_name'],
-        out_path="A3_progress/DTU-KSRtest",
-        conf_path="configs/DA3FG++DTU.conf",
-        mask="bldg_masks"
-    )
+    # run_planarsplatting(
+    #     data_path=BD_SCENES[0]['data_path'],
+    #     exp_name=BD_SCENES[0]['exp_name'],
+    #     out_path="A3_progress/DTU-KSRtest",
+    #     conf_path="configs/DA3FG++DTU.conf",
+    #     mask="bldg_masks"
+    # )
