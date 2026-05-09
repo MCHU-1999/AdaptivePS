@@ -187,18 +187,16 @@ class SceneDatasetDemo:
         self.normal_paths = normal_paths
 
         # --- Efficient Mesh Generation ---
-        # Temporarily load all depth maps just for the initial mesh fusion.
+        # Load depth maps as CPU numpy arrays — refuse_mesh uses Open3D (CPU-only),
+        # so there is no reason to push these to GPU VRAM.
         logger.info('Loading depth maps for mesh generation...')
-        mono_depths = []
-        for depth_path in depth_paths:
-            depth = np.load(depth_path)
-            depth_tensor = torch.from_numpy(depth).cuda().float()  # h, w
-            mono_depths.append(depth_tensor)
-        
+        mono_depths = [np.load(depth_path).reshape(img_res[0], img_res[1]).astype(np.float32)
+                       for depth_path in depth_paths]
         logger.info(f'Loaded {len(mono_depths)} depth maps for mesh generation')
+
         # Generate and save the initial coarse mesh from monocular depth maps.
         mesh = refuse_mesh(
-            [x.cpu().squeeze().reshape(img_res[0], img_res[1]).numpy() for x in mono_depths],
+            mono_depths,
             [x.cpu().numpy() for x in self.poses_all],
             [x.cpu().numpy() for x in self.intrinsics_all],
             img_res[0],
@@ -208,13 +206,7 @@ class SceneDatasetDemo:
             depth_trunc=self.depth_trunc
         )
         o3d.io.write_triangle_mesh(self.mono_mesh_dest, mesh)
-
-        
-        # --- Memory Management ---
-        # Clear the temporarily loaded depth data to free up GPU memory.
-        del mono_depths
-        torch.cuda.empty_cache()
-        print("Cleared temporary depth data from memory")
+        del mono_depths  # free CPU RAM before training starts
 
         self.raster_cam_w2c_list, self.raster_cam_proj_list, self.raster_cam_fullproj_list, self.raster_cam_center_list, self.raster_cam_FovX_list, self.raster_cam_FovY_list, self.raster_img_center_list = self.get_raster_cameras(
             self.intrinsics_all, self.poses_all, img_res[0], img_res[1])

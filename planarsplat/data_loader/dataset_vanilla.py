@@ -149,19 +149,16 @@ class SceneDatasetDemo:
         self.normal_paths = normal_paths
 
         # --- Efficient Mesh Generation ---
-        # Temporarily load all depth maps just for the initial mesh fusion.
+        # Load depth maps as CPU numpy arrays — refuse_mesh uses Open3D (CPU-only),
+        # so there is no reason to push these to GPU VRAM.
         print("Loading depth maps for mesh generation...")
-        mono_depths = []
-        for depth_path in depth_paths:
-            depth = np.load(depth_path)
-            depth_tensor = torch.from_numpy(depth).cuda().float()  # h, w
-            mono_depths.append(depth_tensor)
-        
+        mono_depths = [np.load(depth_path).reshape(img_res[0], img_res[1]).astype(np.float32)
+                       for depth_path in depth_paths]
         print(f"Loaded {len(mono_depths)} depth maps for mesh generation")
 
         # Generate and save the initial coarse mesh from monocular depth maps.
         mesh = refuse_mesh(
-            [x.cpu().squeeze().reshape(img_res[0], img_res[1]).numpy() for x in mono_depths],
+            mono_depths,
             [x.cpu().numpy() for x in self.poses_all],
             [x.cpu().numpy() for x in self.intrinsics_all],
             img_res[0],
@@ -171,6 +168,7 @@ class SceneDatasetDemo:
             depth_trunc=depth_trunc
         )
         o3d.io.write_triangle_mesh(self.mono_mesh_dest, mesh)
+        del mono_depths  # free CPU RAM before training starts
 
         # --- Optional Pre-alignment of Depth Maps ---
         if mesh_pre_align:
