@@ -170,7 +170,6 @@ def merge_plane(
 
     plane_ins_id_new = get_planeInsId_from_ptsInsAssignment(plane_normal.shape[0], pts_ins_assignment_original, pts_ins_assignment_final)
     planar_mesh, mesh_pts = build_planar_mesh_for_eval(
-    # planar_mesh, mesh_pts = build_planar_mesh_for_eval_trimesh(
         pts_updated, 
         pts_normal_updated, 
         pts_ins_assignment_final, 
@@ -387,130 +386,52 @@ def find_best_assignments_for_each_group(group_id, pts_tensor, pts_normal_tensor
     return pts_ins_assignment_tensor
 
 def build_planar_mesh_for_eval(pts, pts_normal, pts_ins_assignment, faces, move_pts_on=True, return_pts=False):
-    import open3d as o3d
-    # ------------------------------------------------------------------- build planar mesh
-    pts_ins_assignment_np = pts_ins_assignment.cpu().numpy()
-    faces = faces.cpu().numpy()
-    color_vis = random_color(np.unique(pts_ins_assignment_np).max().item()+100)
-    colorMap_vis = color_vis(np.unique(pts_ins_assignment_np).max().item()+10)
-    pts_color = colorMap_vis[pts_ins_assignment_np] / 255.
-    triangle_mesh = o3d.geometry.TriangleMesh()
-    triangle_mesh.vertices = o3d.utility.Vector3dVector(pts.cpu().numpy())
-    triangle_mesh.vertex_colors = o3d.utility.Vector3dVector(pts_color)
-    triangle_mesh.triangles = o3d.utility.Vector3iVector(faces)
-    # -------------------------------------------------------------------- label non-plane faces
-    face_ass = pts_ins_assignment_np[faces.reshape(-1)].reshape(-1, 3)
-    face_invalid_mask = (face_ass[:,0] == 0).astype(np.int64) + (face_ass[:,1] == 0).astype(np.int64) + (face_ass[:,2] == 0).astype(np.int64)
-    # face_invalid_mask = face_invalid_mask > 0
-    face_invalid_mask = face_invalid_mask == 3
-    face_id = np.arange(faces.shape[0])
-    removed_face_id = face_id[face_invalid_mask]
-    # -------------------------------------------------------------------- update pts color
-    face_max_ass = face_ass.max(axis=-1).reshape(-1, 1)
-    face_max_ass = np.repeat(face_max_ass, 3, axis=-1)
-    pts_ins_assignment_np[faces[~face_invalid_mask]] = face_max_ass[~face_invalid_mask]
-    color_vis = random_color(np.unique(pts_ins_assignment_np).max().item()+100)
-    colorMap_vis = color_vis(np.unique(pts_ins_assignment_np).max().item()+10)
-    pts_color = colorMap_vis[pts_ins_assignment_np] / 255.
-    triangle_mesh.vertex_colors = o3d.utility.Vector3dVector(pts_color)    
-    # # -------------------------------------------------------------------- move points
-    if move_pts_on:
-        pts_ins_assignment_tensor = torch.from_numpy(pts_ins_assignment_np).cuda()
-        pts_plane = move_pts_onto_plane_simple(pts.clone(), pts_normal, pts_ins_assignment_tensor)
-        triangle_mesh.vertices = o3d.utility.Vector3dVector(pts_plane.cpu().numpy())
-    else:
-        pts_plane = pts
-        logger.warning("using original points....")
-    # -------------------------------------------------------------------- remove non-plane faces
-    # logger.warning("showing all faces for debug")
-    triangle_mesh.remove_triangles_by_index(removed_face_id)
-    triangle_mesh.remove_duplicated_triangles()
-    triangle_mesh.remove_duplicated_vertices()
-    triangle_mesh.remove_unreferenced_vertices()
-
-    if return_pts:
-        return triangle_mesh, pts_plane
-    else:
-        return triangle_mesh
-    
-def o3d_to_trimesh(o3d_mesh):
     import trimesh
-    # Verify input type to avoid cryptic attribute errors
-    if not hasattr(o3d_mesh, 'triangles') or not hasattr(o3d_mesh, 'vertices'):
-        raise TypeError("Input must be an open3d.geometry.TriangleMesh")
-
-    vertices = np.asarray(o3d_mesh.vertices)
-    faces = np.asarray(o3d_mesh.triangles)
-    
-    vertex_colors = None
-    if o3d_mesh.has_vertex_colors():
-        # Scale float [0, 1] to uint8 [0, 255]
-        vertex_colors = (np.asarray(o3d_mesh.vertex_colors) * 255).astype(np.uint8)
-
-    vertex_normals = None
-    if o3d_mesh.has_vertex_normals():
-        vertex_normals = np.asarray(o3d_mesh.vertex_normals)
-
-    return trimesh.Trimesh(
-        vertices=vertices, 
-        faces=faces, 
-        vertex_colors=vertex_colors, 
-        vertex_normals=vertex_normals,
-        process=False # Set to False to prevent Trimesh from altering geometry on load
-    )
-    
-def build_planar_mesh_for_eval_trimesh(pts, pts_normal, pts_ins_assignment, faces, move_pts_on=True, return_pts=False):
-    import open3d as o3d
     # ------------------------------------------------------------------- build planar mesh
     pts_ins_assignment_np = pts_ins_assignment.cpu().numpy()
     faces = faces.cpu().numpy()
     color_vis = random_color(np.unique(pts_ins_assignment_np).max().item()+100)
     colorMap_vis = color_vis(np.unique(pts_ins_assignment_np).max().item()+10)
-    pts_color = colorMap_vis[pts_ins_assignment_np] / 255.
-    triangle_mesh = o3d.geometry.TriangleMesh()
-    triangle_mesh.vertices = o3d.utility.Vector3dVector(pts.cpu().numpy())
-    triangle_mesh.vertex_colors = o3d.utility.Vector3dVector(pts_color)
-    triangle_mesh.triangles = o3d.utility.Vector3iVector(faces)
+
     # -------------------------------------------------------------------- label non-plane faces
     face_ass = pts_ins_assignment_np[faces.reshape(-1)].reshape(-1, 3)
     face_invalid_mask = (face_ass[:,0] == 0).astype(np.int64) + (face_ass[:,1] == 0).astype(np.int64) + (face_ass[:,2] == 0).astype(np.int64)
-    # face_invalid_mask = face_invalid_mask > 0
     face_invalid_mask = face_invalid_mask == 3
-    face_id = np.arange(faces.shape[0])
-    removed_face_id = face_id[face_invalid_mask]
+
     # -------------------------------------------------------------------- update pts color
     face_max_ass = face_ass.max(axis=-1).reshape(-1, 1)
     face_max_ass = np.repeat(face_max_ass, 3, axis=-1)
     pts_ins_assignment_np[faces[~face_invalid_mask]] = face_max_ass[~face_invalid_mask]
-    color_vis = random_color(np.unique(pts_ins_assignment_np).max().item()+100)
-    colorMap_vis = color_vis(np.unique(pts_ins_assignment_np).max().item()+10)
-    pts_color = colorMap_vis[pts_ins_assignment_np] / 255.
-    triangle_mesh.vertex_colors = o3d.utility.Vector3dVector(pts_color)    
-    # # -------------------------------------------------------------------- move points
+    pts_color = (colorMap_vis[pts_ins_assignment_np]).astype(np.uint8)
+
+    # -------------------------------------------------------------------- move points
     if move_pts_on:
         pts_ins_assignment_tensor = torch.from_numpy(pts_ins_assignment_np).cuda()
         pts_plane = move_pts_onto_plane_simple(pts.clone(), pts_normal, pts_ins_assignment_tensor)
-        triangle_mesh.vertices = o3d.utility.Vector3dVector(pts_plane.cpu().numpy())
+        vertices = pts_plane.cpu().numpy()
     else:
+        vertices = pts.cpu().numpy()
         pts_plane = pts
         logger.warning("using original points....")
-    # -------------------------------------------------------------------- remove non-plane faces
-    # logger.warning("showing all faces for debug")
-    triangle_mesh.remove_triangles_by_index(removed_face_id)
-    triangle_mesh.remove_duplicated_triangles()
-    triangle_mesh.remove_duplicated_vertices()
-    triangle_mesh.remove_unreferenced_vertices()
 
     # -------------------------------------------------------------------- convert to trimesh
-    trimesh_mesh = o3d_to_trimesh(triangle_mesh)
-    # Add the `primitive_index` property
-    trimesh_mesh.vertex_attributes['primitive_index'] = pts_ins_assignment_np
+    mesh = trimesh.Trimesh(
+        vertices=vertices, 
+        faces=faces, 
+        vertex_colors=pts_color,
+        vertex_attributes={'pts_ins_assignment': pts_ins_assignment_np},
+        process=False
+    )
+    
+    # -------------------------------------------------------------------- remove non-plane faces
+    mesh.update_faces(~face_invalid_mask)
+    mesh.remove_unreferenced_vertices()
 
     if return_pts:
-        return trimesh_mesh, pts_plane
+        return mesh, pts_plane
     else:
-        return trimesh_mesh
-
+        return mesh
+    
 class random_color(object):
     def __init__(self, color_num=10000):
         num_of_colors=color_num

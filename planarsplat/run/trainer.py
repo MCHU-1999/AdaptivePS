@@ -245,9 +245,7 @@ class PlanarSplatTrainRunner():
             if debug_output:
                 save_path = os.path.join(save_root, f"coarse_planar_mesh.ply")
                 logger.info(f'saving 1st merged (coarse) mesh to {save_path} ---DEBUG')
-                o3d.io.write_triangle_mesh(
-                            save_path, 
-                            planarSplat_eval_mesh)
+                planarSplat_eval_mesh.export(save_path)
                 
             if merge_config_fine is not None:
                 logger.info(f'mergeing (fine)...')
@@ -269,9 +267,7 @@ class PlanarSplatTrainRunner():
             # Original code: using o3d.io.write_triangle_mesh()
             save_path = os.path.join(save_root, f"final_planar_mesh.ply")
             logger.info(f'saving final planar mesh to {save_path}')
-            o3d.io.write_triangle_mesh(
-                        save_path, 
-                        planarSplat_eval_mesh)
+            planarSplat_eval_mesh.export(save_path)
 
             # # The other way: using trimesh (buggy)
             # save_path = os.path.join(save_root, f"final_planar_mesh.ply")
