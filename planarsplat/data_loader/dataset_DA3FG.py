@@ -157,8 +157,12 @@ class SceneDatasetDemo:
             assert len(fg_mask_paths) == self.n_images, f"Mask paths count mismatch: {len(fg_mask_paths)} vs {self.n_images}"
 
             all_depths = []
+            mono_depths = []
+            logger.info('Loading depth maps & masks for initial mesh generation...')
             for depth_path, fg_mask_path in zip(depth_paths, fg_mask_paths):
                 depth = np.load(depth_path)
+                mono_depths.append(depth.reshape(img_res[0], img_res[1]).astype(np.float32))
+
                 fg_mask = np.array(Image.open(fg_mask_path))  # h, w, 1
                 fg_mask = (fg_mask > 0.5).astype(bool)
                 fg_mask = np.squeeze(fg_mask)
@@ -190,11 +194,6 @@ class SceneDatasetDemo:
         self.normal_paths = normal_paths
 
         # --- Efficient Mesh Generation ---
-        # Load depth maps as CPU numpy arrays — refuse_mesh uses Open3D (CPU-only),
-        # so there is no reason to push these to GPU VRAM.
-        logger.info('Loading depth maps for mesh generation...')
-        mono_depths = [np.load(depth_path).reshape(img_res[0], img_res[1]).astype(np.float32)
-                       for depth_path in depth_paths]
         logger.info(f'Loaded {len(mono_depths)} depth maps for mesh generation')
 
         # Generate and save the initial coarse mesh from monocular depth maps.
