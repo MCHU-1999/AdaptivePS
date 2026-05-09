@@ -29,7 +29,8 @@ class PlanarSplatTrainRunner():
         setup_logging(os.path.join(self.expdir, 'train.log'))
         self.loss_sink_id = logger.add(os.path.join(self.expdir, 'loss.log'), format="{time:YYYY-MM-DD HH:mm:ss} | {message}", filter=lambda record: "loss" in record["extra"])
         kwargs['data']['expdir'] = self.expdir
-        
+
+        logger.info(f'\n----- PlanarSplatting running on scene: {self.expname} -----')
         logger.info('Shell command : {0}'.format(' '.join(sys.argv)))
         save_config_files(self.expdir, self.conf)
 
@@ -108,9 +109,8 @@ class PlanarSplatTrainRunner():
             self.check_plane_visibility_cuda()
 
         view_info_list = None
-        progress_bar = tqdm(range(self.start_iter, self.max_total_iters+1), desc="Training progress")
         calculate_plane_depth(self)
-        ema_loss = None
+
         for iter in range(self.start_iter, self.max_total_iters + 1):
             self.iter_step = iter
             # ======================================= process planes
@@ -118,11 +118,10 @@ class PlanarSplatTrainRunner():
                 self.net.regularize_plane_shape()
                 self.net.prune_small_plane()
                 if iter > self.split_start_ite and iter <= self.max_total_iters - 1000:
-                    logger.info('splitting...')
                     ori_num = self.net.planarSplat.get_plane_num()
                     self.net.split_plane()
                     new_num = self.net.planarSplat.get_plane_num()
-                    logger.info(f'plane num: {ori_num} ---> {new_num}')
+                    logger.info(f'Plane splitting. num: {ori_num} ---> {new_num}')
             # ======================================= get view info
             if not view_info_list:
                 view_info_list = self.dataset.view_info_list.copy()
@@ -162,26 +161,15 @@ class PlanarSplatTrainRunner():
             self.net.update_grad_stats()
             self.net.regularize_plane_shape(empty_cache=False)
             
-            if ema_loss is None:
-                ema_loss = loss_final.item()
-            else:
-                ema_loss = 0.9 * ema_loss + 0.1 * loss_final.item()
-            
             image_index = view_info.index
             self.dataset.view_info_list[image_index].plane_depth = depth.detach().clone()
 
             with torch.no_grad():
-                # Progress bar
                 plane_num = self.net.planarSplat.get_plane_num()
                 if iter % 100 == 0:
-                    loss_dict = {
-                        "Planes": f"{plane_num}",
-                    }
-                    progress_bar.set_postfix(loss_dict)
-                    progress_bar.update(100)
-                    logger.bind(loss=True).info(f"Iteration: {iter:05d} | Loss (EMA): {ema_loss:.4f}")
-                if iter == self.max_total_iters:
-                    progress_bar.close()
+                    logger.bind(loss=True).info(
+                        f"Iteration: {iter:05d} | Loss: {loss_final.item():.4f} | Planes: {plane_num}"
+                    )
             
             # ======================================= plot model outputs
             if self.do_vis and iter % self.plot_freq == 0:  # do_vis is often False
@@ -212,10 +200,6 @@ class PlanarSplatTrainRunner():
         self.net.prune_small_plane(min_radii=0.02)
         logger.info("number of 3D planar primitives = %d"%(self.net.planarSplat.get_plane_num()))
 
-        # # The 3rd version, but using mesh to trim is kinda unfair
-        # ref_mesh = trimesh.load_mesh(self.dataset.mono_mesh_dest)
-        # -----------------------------------------------------------
-        # The 2nd version
         ref_mesh = get_coarse_mesh(
             self.net, 
             self.dataset.view_info_list.copy(), 
@@ -231,16 +215,6 @@ class PlanarSplatTrainRunner():
             o3d.io.write_triangle_mesh(
                         save_path, 
                         ref_mesh)
-        # -----------------------------------------------------------
-        # # The very original verison looks like this:
-        # ref_mesh = get_coarse_mesh(
-        #     self.net, 
-        #     self.dataset.view_info_list.copy(), 
-        #     self.H, 
-        #     self.W, 
-        #     voxel_length=0.02, 
-        #     sdf_trunc=0.08
-        # )
         
         merge_config_coarse = self.conf.get_config('merge_coarse', default=None)
         merge_config_fine = self.conf.get_config('merge_fine', default=None)
@@ -287,11 +261,6 @@ class PlanarSplatTrainRunner():
             o3d.io.write_triangle_mesh(
                         save_path, 
                         planarSplat_eval_mesh)
-
-            # # The other way: using trimesh (buggy)
-            # save_path = os.path.join(save_root, f"final_planar_mesh.ply")
-            # logger.info(f'saving final planar mesh to {save_path}')
-            # planarSplat_eval_mesh.export(save_path)
         
         return planarSplat_eval_mesh
 
@@ -413,11 +382,15 @@ class PlanarSplatTrainRunner():
                 plane_id=category_id,
                 save_mesh=True,
             )
-            logger.info('[check_plane_visibility++] saved debug mesh')
         # -------------------------------------------------------------------------------------
 
-        keep_mask = ~bg_only
 
+        logger.info(
+            f'[check_plane_visibility++] FG: {int(fg_only.sum().item())}, '
+            f'BG: {int(bg_only.sum().item())}, Ambiguous: {int(ambiguous.sum().item())}'
+        )
+
+        keep_mask = ~bg_only
         if bg_only.any():
             self.net.prune_core(bg_only.detach())
             logger.info(f'[check_plane_visibility++] removed {int(bg_only.sum().item())} planes')
@@ -445,148 +418,9 @@ class PlanarSplatTrainRunner():
             else:
                 logger.info(f'[check_plane_visibility++] no valid ambiguous planes to split after pruning')
         else:
-            logger.info(f'[check_plane_visibility++] LASTDOG no split')
+            logger.info(f'[check_plane_visibility++] LAST ITER no split')
 
         self.net.planarSplat.check_model()
-        logger.info(
-            f'[check_plane_visibility++] fg_only={int(fg_only.sum().item())}, '
-            f'bg_only={int(bg_only.sum().item())}, ambiguous={int(ambiguous.sum().item())}'
-        )
-
         self.net.optimizer.zero_grad()
         self.net.train()
         self.net.planarSplat.draw_plane(epoch=self.iter_step)
-
-    # def check_plane_visibility_cuda_plus_plus(self, debug=True, lastdog=False):
-    #     """
-    #     Percentile-based plane split/prune policy using contribution scores.
-        
-    #     Strategy:
-    #     - Compute quality_score = fg_hits - LAMBDA * bg_hits (contribution metric)
-    #     - Prune: worst 10% by quality_score
-    #     - Split: middle 50% (10th to 60th percentile)
-    #     - Keep: best 40% (60th percentile and above)
-        
-    #     This provides adaptive, non-manual-threshold-based decisions.
-    #     """
-    #     LAMBDA = 1.0  # Balance FG vs BG contributions
-    #     PRUNE_PERCENTILE = 10
-    #     SPLIT_PERCENTILE = 60
-    #     MAX_SPLIT_PER_CHECK = 1500
-
-    #     self.net.regularize_plane_shape(empty_cache=False)
-    #     logger.info('checking plane visibility (FG/BG split)...')
-    #     self.net.eval()
-
-    #     plane_num = self.net.planarSplat.get_plane_num()
-    #     fg_hit_count = torch.zeros((plane_num, 1), device='cuda')
-    #     bg_hit_count = torch.zeros((plane_num, 1), device='cuda')
-
-    #     view_info_list = self.dataset.view_info_list.copy()
-    #     for _ in tqdm(range(self.ds_len)):
-    #         view_info = view_info_list.pop(randint(0, len(view_info_list) - 1))
-    #         raster_cam_w2c = view_info.raster_cam_w2c
-
-    #         allmap = self.net.planarSplat(view_info, self.iter_step)
-    #         depth = allmap[0:1].view(-1)
-    #         normal_local_ = allmap[2:5]
-    #         normal_global = (normal_local_.permute(1, 2, 0) @ (raster_cam_w2c[:3, :3].T)).view(-1, 3)
-    #         vis_weight = allmap[1:2].view(-1)
-
-    #         valid_ray_mask = vis_weight > 1e-5
-    #         fg_area = view_info.fg_mask
-    #         fg_mask = valid_ray_mask & fg_area
-    #         bg_mask = valid_ray_mask & ~fg_area
-
-    #         # FG pass
-    #         self.net.optimizer.zero_grad()
-    #         fg_vis = torch.zeros(plane_num, device='cuda', dtype=torch.bool)
-    #         if fg_mask.sum() > 0:
-    #             loss_mono_depth = metric_depth_loss(depth, view_info.mono_depth, fg_mask, max_depth=self.max_depth)
-    #             loss_normal_l1, loss_normal_cos = normal_loss(normal_global, view_info.mono_normal_global, fg_mask)
-    #             fg_loss = loss_mono_depth + loss_normal_cos + loss_normal_l1
-    #             if torch.isfinite(fg_loss):
-    #                 fg_loss.backward(retain_graph=True)
-    #                 fg_vis = self.net.planarSplat._plane_center.grad.abs().detach().sum(dim=-1) > 0
-    #                 fg_hit_count[fg_vis] += 1
-    #         self.net.optimizer.zero_grad()
-
-    #         # BG pass
-    #         bg_vis = torch.zeros(plane_num, device='cuda', dtype=torch.bool)
-    #         if bg_mask.sum() > 0:
-    #             bg_loss = vis_weight[bg_mask].mean()
-    #             if torch.isfinite(bg_loss):
-    #                 bg_loss.backward()
-    #                 bg_vis = self.net.planarSplat._plane_center.grad.abs().detach().sum(dim=-1) > 0
-    #                 bg_hit_count[bg_vis] += 1
-    #         self.net.optimizer.zero_grad()
-
-    #     fg_hits = fg_hit_count.squeeze(-1)
-    #     bg_hits = bg_hit_count.squeeze(-1)
-
-    #     # Compute quality score: FG contribution minus weighted BG contribution
-    #     quality_score = fg_hits.float() - LAMBDA * bg_hits.float()
-
-    #     # Determine thresholds using percentiles
-    #     prune_threshold = torch.quantile(quality_score, PRUNE_PERCENTILE / 100.0)
-    #     split_threshold = torch.quantile(quality_score, SPLIT_PERCENTILE / 100.0)
-
-    #     # Classify planes by quality percentile
-    #     prune_mask = (quality_score < prune_threshold)
-    #     split_mask = (quality_score >= prune_threshold) & (quality_score < split_threshold)
-
-    #     # Apply split budget cap: keep only top scorers within split category
-    #     split_count = split_mask.sum().item()
-    #     if split_count > MAX_SPLIT_PER_CHECK:
-    #         split_indices = split_mask.nonzero(as_tuple=False).squeeze(-1)
-    #         split_scores = quality_score[split_indices]
-    #         _, topk_idx = torch.topk(split_scores, MAX_SPLIT_PER_CHECK, largest=True)
-            
-    #         split_mask_new = torch.zeros_like(split_mask)
-    #         split_mask_new[split_indices[topk_idx]] = True
-    #         split_mask = split_mask_new
-
-    #     # DEBUG -------------------------------------------------------------------------------
-    #     if debug:
-    #         keep_mask_classification = (quality_score >= split_threshold)
-    #         category_id = torch.full((plane_num,), 3, device='cuda', dtype=torch.long)
-    #         category_id[keep_mask_classification] = 0  # Good (top 40%)
-    #         category_id[split_mask] = 1                 # Ambiguous (middle 50%)
-    #         category_id[prune_mask] = 2                 # Bad (bottom 10%)
-
-    #         self.net.planarSplat.draw_plane_debug(
-    #             epoch=self.iter_step,
-    #             plane_id=category_id,
-    #             save_mesh=True,
-    #         )
-    #         logger.info('[check_plane_visibility++] saved category-colored lastdog mesh')
-    #     # -------------------------------------------------------------------------------------
-
-    #     keep_mask = ~prune_mask
-
-    #     if prune_mask.any():
-    #         self.net.prune_core(prune_mask.detach())
-    #         logger.info(f'[check_plane_visibility++] pruned {int(prune_mask.sum().item())} planes (worst {PRUNE_PERCENTILE}%)')
-
-    #     # Remap split_mask to post-prune index space
-    #     split_mask = split_mask[keep_mask]
-
-    #     if (not lastdog) and split_mask.any():
-    #         self.net.split_selected_planes(split_mask)
-    #         logger.info(f'[check_plane_visibility++] split {int(split_mask.sum().item())} planes (percentiles {PRUNE_PERCENTILE}-{SPLIT_PERCENTILE}%, capped at {MAX_SPLIT_PER_CHECK})')
-    #     else:
-    #         if lastdog:
-    #             logger.info(f'[check_plane_visibility++] LASTDOG no split')
-    #         else:
-    #             logger.info(f'[check_plane_visibility++] no planes selected for split')
-
-    #     self.net.planarSplat.check_model()
-    #     logger.info(
-    #         f'[check_plane_visibility++] score_range=[{quality_score.min():.3f}, {quality_score.max():.3f}], '
-    #         f'prune_th={prune_threshold:.3f}, split_th={split_threshold:.3f}, '
-    #         f'pruned={int(prune_mask.sum().item())}, split={int(split_mask.sum().item())}'
-    #     )
-
-    #     self.net.optimizer.zero_grad()
-    #     self.net.train()
-    #     self.net.planarSplat.draw_plane(epoch=self.iter_step)

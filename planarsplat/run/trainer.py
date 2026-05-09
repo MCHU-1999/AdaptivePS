@@ -107,9 +107,8 @@ class PlanarSplatTrainRunner():
             self.check_plane_visibility_cuda()
 
         view_info_list = None
-        progress_bar = tqdm(range(self.start_iter, self.max_total_iters+1), desc="Training progress")
         calculate_plane_depth(self)
-        ema_loss = None
+        
         for iter in range(self.start_iter, self.max_total_iters + 1):
             self.iter_step = iter
             # ======================================= process planes
@@ -117,11 +116,10 @@ class PlanarSplatTrainRunner():
                 self.net.regularize_plane_shape()
                 self.net.prune_small_plane()
                 if iter > self.split_start_ite and iter <= self.max_total_iters - 1000:
-                    logger.info('splitting...')
                     ori_num = self.net.planarSplat.get_plane_num()
                     self.net.split_plane()
                     new_num = self.net.planarSplat.get_plane_num()
-                    logger.info(f'plane num: {ori_num} ---> {new_num}')
+                    logger.info(f'Plane splitting. num: {ori_num} ---> {new_num}')
             # ======================================= get view info
             if not view_info_list:
                 view_info_list = self.dataset.view_info_list.copy()
@@ -161,26 +159,15 @@ class PlanarSplatTrainRunner():
             self.net.update_grad_stats()
             self.net.regularize_plane_shape(empty_cache=False)
             
-            if ema_loss is None:
-                ema_loss = loss_final.item()
-            else:
-                ema_loss = 0.9 * ema_loss + 0.1 * loss_final.item()
-            
             image_index = view_info.index
             self.dataset.view_info_list[image_index].plane_depth = depth.detach().clone()
 
             with torch.no_grad():
-                # Progress bar
                 plane_num = self.net.planarSplat.get_plane_num()
                 if iter % 100 == 0:
-                    loss_dict = {
-                        "Planes": f"{plane_num}",
-                    }
-                    progress_bar.set_postfix(loss_dict)
-                    progress_bar.update(100)
-                    logger.bind(loss=True).info(f"Iteration: {iter:05d} | Loss (EMA): {ema_loss:.4f}")
-                if iter == self.max_total_iters:
-                    progress_bar.close()
+                    logger.bind(loss=True).info(
+                        f"Iteration: {iter:05d} | Loss: {loss_final.item():.4f} | Planes: {plane_num}"
+                    )
             
             # ======================================= plot model outputs
             if self.do_vis and iter % self.plot_freq == 0:

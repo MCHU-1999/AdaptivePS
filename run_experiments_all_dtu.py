@@ -59,7 +59,7 @@ BD_LIKE_SCENES = [
     {
         "exp_name": "scan77",
         "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan77",
-        "bldg_prompt": "Moka pot",
+        "bldg_prompt": "Coffee Mokkapot",
         # "gnd_prompt": "white table surface",
         "bldg_mask_mode": "squash"
     },
@@ -75,9 +75,11 @@ if __name__ == "__main__":
 
     ## SAM3
     # sam_inference_all_scenes(AllDTU)
+    sam_inference_a_scene(BD_LIKE_SCENES[5])
 
     ## DA3
     # da3_inference_all_scenes(AllDTU)
+    da3_inference_a_scene(BD_LIKE_SCENES[5])
 
     ## PlanarSplatting
     for scene in BD_SCENES:

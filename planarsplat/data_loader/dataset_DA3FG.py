@@ -175,13 +175,10 @@ class SceneDatasetDemo:
             raise NotImplementedError("Well sorry you gotta have masks") 
         
         # Put depth_trunc into dataset class
-        self.depth_trunc = np.mean(all_depths)
-        
-        # # Allow config to cap the computed depth_trunc (protects TSDF from huge volume allocations)
-        # config_depth_trunc = kwargs.get('depth_trunc', None)
-        # logger.info(f'depth_trunc computed as {self.depth_trunc:.4f} (config cap: {config_depth_trunc})')
-        # if config_depth_trunc is not None:
-        #     self.depth_trunc = min(self.depth_trunc, config_depth_trunc)
+        if len(all_depths) > 0:
+            self.depth_trunc = np.mean(all_depths)
+        else:
+            self.depth_trunc = kwargs.get('depth_trunc', 10.0)
 
         # Load camera parameters (lightweight)
         self.intrinsics_all = [torch.from_numpy(intrinsic).cuda() for intrinsic in data['intrinsics']]
