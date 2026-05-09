@@ -77,7 +77,7 @@ if __name__ == "__main__":
     # sam_inference_all_scenes(AllDTU)
 
     ## DA3
-    da3_inference_all_scenes(AllDTU)
+    # da3_inference_all_scenes(AllDTU)
 
     ## PlanarSplatting
     for scene in BD_SCENES:
