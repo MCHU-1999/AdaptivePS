@@ -12,8 +12,7 @@ from .net_wrapper import PlanarRecWrapper
 
 from utils.misc_util import setup_logging, get_train_param, save_config_files, prepare_folders, get_class
 from utils.trainer_util import resume_model, calculate_plane_depth, plot_plane_img, save_checkpoints
-from utils.mesh_util import get_coarse_mesh
-# from utils.merge_util import merge_plane
+from utils.mesh_util import get_coarse_mesh, remove_mesh_attribute
 from utils.merge_util_new import merge_plane
 from utils.loss_util import normal_loss, metric_depth_loss
 from utils.model_util import split_planes_xy_via_mask
@@ -187,7 +186,7 @@ class PlanarSplatTrainRunner():
         self.check_plane_visibility_cuda_plus_plus(lastdog=True)
         save_checkpoints(self, iter=self.iter_step, only_latest=False)
 
-    def merger(self, save_mesh=True, debug_output=True):
+    def merger(self, save_mesh=True, save_mesh_for_KSR=True, debug_output=False):
         logger.info("Merging 3D planar primitives...")
         output_dir = self.conf.get_string('train.rec_folder_name', default='')
         if len(output_dir) == 0:
@@ -231,11 +230,7 @@ class PlanarSplatTrainRunner():
                 # The rest
                 **merge_config_coarse
             )
-            if debug_output:
-                save_path = os.path.join(save_root, f"coarse_planar_mesh.ply")
-                logger.info(f'saving 1st merged (coarse) mesh to {save_path} ---DEBUG')
-                planarSplat_eval_mesh.export(save_path)
-                
+
             if merge_config_fine is not None:
                 logger.info(f'mergeing (fine)...')
                 planarSplat_eval_mesh, plane_ins_id_new = merge_plane(
@@ -251,9 +246,15 @@ class PlanarSplatTrainRunner():
                 )
         else:
             raise ValueError("No merge configuration found!")
-        
+
+        if save_mesh_for_KSR:
+            save_path = os.path.join(save_root, f"planar_mesh_for_KSR.ply")
+            logger.info(f'saving final planar mesh to {save_path}')
+            planarSplat_eval_mesh.export(save_path)
+            
         if save_mesh:
-            save_path = os.path.join(save_root, f"final_planar_mesh.ply")
+            planarSplat_eval_mesh = remove_mesh_attribute(planarSplat_eval_mesh)
+            save_path = os.path.join(save_root, f"planar_mesh.ply")
             logger.info(f'saving final planar mesh to {save_path}')
             planarSplat_eval_mesh.export(save_path)
         

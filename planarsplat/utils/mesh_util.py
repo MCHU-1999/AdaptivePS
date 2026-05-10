@@ -9,8 +9,16 @@ import glob
 import torch
 import pyrender
 
-def ground_detection(mesh):
-    pass
+def remove_mesh_attribute(mesh, attribute_name="pts_ins_assignment"):
+    # Check if the attribute exists
+    if attribute_name in mesh.vertex_attributes:
+        print(f"Found attribute '{attribute_name}'. Removing it...")
+        del mesh.vertex_attributes[attribute_name]
+    else:
+        print(f"Attribute '{attribute_name}' not found in the mesh.")
+        print(f"Available attributes: {list(mesh.vertex_attributes.keys())}")
+
+    return mesh
 
 def post_process_mesh(mesh, cluster_to_keep=1):
     """
