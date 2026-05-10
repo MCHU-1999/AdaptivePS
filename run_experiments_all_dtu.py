@@ -15,7 +15,6 @@ BD_SCENES = [
         "exp_name": f"scan{scan_num}",
         "data_path": f"{MY_STORAGE}/DTU_ALL/Building/scan{scan_num}",
         "bldg_prompt": "houses/buildings",
-        # "gnd_prompt": "white table surface",
         "bldg_mask_mode": "squash"
     } for scan_num in BD_NUM
 ]
@@ -25,42 +24,36 @@ BD_LIKE_SCENES = [
         "exp_name": "scan10",
         "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan10",
         "bldg_prompt": "box",
-        # "gnd_prompt": "white table surface",
         "bldg_mask_mode": "squash"
     },
     {
         "exp_name": "scan13",
         "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan13",
         "bldg_prompt": "box",
-        # "gnd_prompt": "white table surface",
         "bldg_mask_mode": "squash"
     },
     {
         "exp_name": "scan34",
         "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan34",
         "bldg_prompt": "bricks",
-        # "gnd_prompt": "white table surface",
         "bldg_mask_mode": "squash"
     },
     {
         "exp_name": "scan40",
         "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan40",
         "bldg_prompt": "bricks",
-        # "gnd_prompt": "white table surface",
         "bldg_mask_mode": "squash"
     },
     {
         "exp_name": "scan47",
         "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan47",
         "bldg_prompt": "wave signal generator",
-        # "gnd_prompt": "white table surface",
         "bldg_mask_mode": "squash"
     },
     {
         "exp_name": "scan77",
         "data_path": f"{MY_STORAGE}/DTU_ALL/Building_like/scan77",
         "bldg_prompt": "Coffee Mokkapot",
-        # "gnd_prompt": "white table surface",
         "bldg_mask_mode": "squash"
     },
 ]
@@ -82,27 +75,19 @@ if __name__ == "__main__":
     # da3_inference_a_scene(BD_LIKE_SCENES[5])
 
     ## PlanarSplatting
-    # for scene in BD_SCENES:
-    #     run_planarsplatting(
-    #         data_path=scene['data_path'],
-    #         exp_name=scene['exp_name'],
-    #         out_path="A3_progress/DTU-Building",
-    #         conf_path="configs/DA3FG++DTU.conf",
-    #         mask="bldg_masks"
-    #     )
-    # for scene in BD_LIKE_SCENES:
-    #     run_planarsplatting(
-    #         data_path=scene['data_path'],
-    #         exp_name=scene['exp_name'],
-    #         out_path="A3_progress/DTU-Building-like",
-    #         conf_path="configs/DA3FG++DTU.conf",
-    #         mask="bldg_masks"
-    #     )
-
-    # run_planarsplatting(
-    #     data_path=BD_SCENES[0]['data_path'],
-    #     exp_name=BD_SCENES[0]['exp_name'],
-    #     out_path="A3_progress/DTU-KSRtest",
-    #     conf_path="configs/DA3FG++DTU.conf",
-    #     mask="bldg_masks"
-    # )
+    for scene in BD_SCENES:
+        run_planarsplatting(
+            data_path=scene['data_path'],
+            exp_name=scene['exp_name'],
+            out_path="A3_progress/DTU-Building",
+            conf_path="configs/DA3FG++DTU.conf",
+            mask="bldg_masks"
+        )
+    for scene in BD_LIKE_SCENES:
+        run_planarsplatting(
+            data_path=scene['data_path'],
+            exp_name=scene['exp_name'],
+            out_path="A3_progress/DTU-Building-like",
+            conf_path="configs/DA3FG++DTU.conf",
+            mask="bldg_masks"
+        )
