@@ -118,7 +118,7 @@ if __name__ == "__main__":
         run_planarsplatting(
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
-            out_path="A3_progress/DA3FG2_split",
+            out_path="A3_progress/Pexels",
             conf_path="configs/DA3FG++big.conf",
             mask="bldg_masks"
         )
