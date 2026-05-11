@@ -1,5 +1,6 @@
 .env
 .DS_Store
+SAM3/hf_token.txt
 data/
 exps*/
 checkpoints/
@@ -17,4 +18,5 @@ TSDF_test/
 my_experiments/
 A2_progress/
 A3_progress/
-SAM3/hf_token.txt
+Vanilla/
+AdaptivePS/

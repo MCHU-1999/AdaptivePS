@@ -20,7 +20,8 @@ def get_scales(key, cameras, images, points3d_ordered, invmonodepthmap):
     image_meta = images[key]
     cam_intrinsic = cameras[image_meta.camera_id]
 
-    pts_idx = images_meta[key].point3D_ids
+    # pts_idx = images_meta[key].point3D_ids
+    pts_idx = image_meta.point3D_ids
 
     mask = pts_idx >= 0
     mask *= pts_idx < len(points3d_ordered)

@@ -108,10 +108,10 @@ if __name__ == "__main__":
 
     ## SAM3
     # sam_inference_all_scenes(SCENES)
-    sam_inference_a_scene(SCENES[-1])
+    # sam_inference_a_scene(SCENES[-1])
 
     ## DA3
-    da3_inference_all_scenes(SCENES)
+    # da3_inference_all_scenes(SCENES)
     # da3_inference_a_scene(SCENES[-1])
 
     ## PlanarSplatting
