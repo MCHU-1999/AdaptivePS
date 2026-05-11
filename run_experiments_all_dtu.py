@@ -1,7 +1,9 @@
+import run_vanilla
 import os
 from DA3.inference_dtu import da3_inference_all_scenes, da3_inference_a_scene
 from SAM3.inference import set_hf_token_from_txt, sam_inference_all_scenes, sam_inference_a_scene
 from run_DA3FG import run_planarsplatting
+from run_vanilla import run_vanilla
 
 
 # CONST
@@ -75,19 +77,34 @@ if __name__ == "__main__":
     # da3_inference_a_scene(BD_LIKE_SCENES[5])
 
     ## PlanarSplatting
+    # for scene in BD_SCENES:
+    #     run_planarsplatting(
+    #         data_path=scene['data_path'],
+    #         exp_name=scene['exp_name'],
+    #         out_path="AdaptivePS/DTU-Building",
+    #         conf_path="configs/DA3FG++DTU.conf",
+    #         mask="bldg_masks"
+    #     )
+    # for scene in BD_LIKE_SCENES:
+    #     run_planarsplatting(
+    #         data_path=scene['data_path'],
+    #         exp_name=scene['exp_name'],
+    #         out_path="AdaptivePS/DTU-Building-like",
+    #         conf_path="configs/DA3FG++DTU.conf",
+    #         mask="bldg_masks"
+    #     )
+
     for scene in BD_SCENES:
-        run_planarsplatting(
+        run_vanilla(
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
-            out_path="A3_progress/DTU-Building",
-            conf_path="configs/DA3FG++DTU.conf",
-            mask="bldg_masks"
+            out_path="Vanilla/DTU-Building",
+            conf_path="configs/vanilla.conf",
         )
     for scene in BD_LIKE_SCENES:
-        run_planarsplatting(
+        run_vanilla(
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
-            out_path="A3_progress/DTU-Building-like",
-            conf_path="configs/DA3FG++DTU.conf",
-            mask="bldg_masks"
+            out_path="Vanilla/DTU-Building-like",
+            conf_path="configs/vanilla.conf",
         )

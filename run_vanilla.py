@@ -71,27 +71,12 @@ def get_scales(key, cameras, images, points3d_ordered, invmonodepthmap):
     return {"image_name": image_meta.name[:-n_remove], "scale": scale, "offset": offset}
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument("-d", "--data_path", type=str, default='path/to/colmap/data', help='path of input colmap data')
-    parser.add_argument("-o", "--out_path", type=str, default='planarSplat_ExpRes/vanilla', help='path of output dir')
-    parser.add_argument("--conf_path", type=str, default='configs/vanilla.conf', help='path of configure file')
-    parser.add_argument('--use_precomputed_data', default=False, action="store_true", help='use processed data from input images')
-    parser.add_argument('--mask', type=str, default=None, help='name of mask folder (None=not using mask)')
-
-    parser.add_argument("--mesh_pre_align", type=bool, default=False, help='Optional pre-alignment of depth maps')
-    parser.add_argument("--voxel_length", type=float, default=None, help='voxel size for TSDF Integration')
-    parser.add_argument("--depth_trunc", type=float, default=None, help='max meaningful depth in TSDF (a threshold that separates target and background)')
-    parser.add_argument("--max_depth", type=float, default=None, help='max meaningful depth in loss function (a threshold that separates target and background)')
-    parser.add_argument("--exp_name", type=str, default=None, help='experiment name for output folder')
-    args = parser.parse_args()
-
+def run_vanilla(data_path, out_path, conf_path, use_precomputed_data=False, mask=None, mesh_pre_align=False, voxel_length=None, depth_trunc=None, max_depth=None, exp_name=None):
     USE_MASK = False
-    if args.mask is not None:
-        mask_folder_name = args.mask
+    if mask is not None:
+        mask_folder_name = mask
         USE_MASK = True
 
-    data_path = args.data_path
     if not os.path.exists(data_path):
         raise ValueError(f'The input data path {data_path} does not exist.')
     
@@ -104,15 +89,15 @@ if __name__ == '__main__':
         if not os.path.exists(fg_mask_dir):
             raise ValueError(f'The mask directory {fg_mask_dir} does not exist.')
 
-    colmap_cam_file_path = os.path.join(data_path, 'sparse/0/cameras.bin')
+    colmap_cam_file_path = os.path.join(data_path, 'DA3_colmap/cameras.bin')
     if not os.path.exists(colmap_cam_file_path):
-        colmap_cam_file_path = os.path.join(data_path, 'sparse/0/cameras.txt')
+        colmap_cam_file_path = os.path.join(data_path, 'DA3_colmap/cameras.txt')
         if not os.path.exists(colmap_cam_file_path):
             raise ValueError(f'The input path {colmap_cam_file_path} does not exist.')
     
-    colmap_image_file_path = os.path.join(data_path, 'sparse/0/images.bin')
+    colmap_image_file_path = os.path.join(data_path, 'DA3_colmap/images.bin')
     if not os.path.exists(colmap_image_file_path):
-        colmap_image_file_path = os.path.join(data_path, 'sparse/0/images.txt')
+        colmap_image_file_path = os.path.join(data_path, 'DA3_colmap/images.txt')
         if not os.path.exists(colmap_image_file_path):
             raise ValueError(f'The input path {colmap_image_file_path} does not exist.')
     
@@ -123,11 +108,8 @@ if __name__ == '__main__':
     os.makedirs(normal_save_dir, exist_ok=True)
     os.makedirs(scaled_depth_dir, exist_ok=True)
 
-
-    out_path = args.out_path
     os.makedirs(out_path, exist_ok=True)
     precomputed_data_path = os.path.join(data_path, 'vanilla_precomputed.pth')
-    use_precomputed_data = args.use_precomputed_data
 
     if use_precomputed_data and os.path.exists(precomputed_data_path):
         data = torch.load(precomputed_data_path)
@@ -197,7 +179,8 @@ if __name__ == '__main__':
         img_res = [h, w]
         del color_images_list
 
-        cam_intrinsics, images_metas, points3d = read_model(os.path.join(data_path, "sparse", "0"))
+        # cam_intrinsics, images_metas, points3d = read_model(os.path.join(data_path, "sparse", "0"))
+        cam_intrinsics, images_metas, points3d = read_model(os.path.join(data_path, "DA3_colmap"))
         pts_indices = np.array([points3d[key].id for key in points3d])
         pts_xyzs = np.array([points3d[key].xyz for key in points3d])
         points3d_ordered = np.zeros([pts_indices.max()+1, 3])
@@ -245,7 +228,7 @@ if __name__ == '__main__':
 
     # load conf
     base_conf = ConfigFactory.parse_file('planarsplat/base_confs/base_conf_planarSplatCuda.conf')
-    demo_conf = ConfigFactory.parse_file(args.conf_path)
+    demo_conf = ConfigFactory.parse_file(conf_path)
     conf = ConfigTree.merge_configs(base_conf, demo_conf)
     put_if_not_none(conf, 'train.exps_folder_name', out_path)
 
@@ -253,14 +236,41 @@ if __name__ == '__main__':
         with Image.open(data['image_paths'][0]) as img:
             img_res = [img.height, img.width]
     
-    voxel_length = args.voxel_length
     sdf_trunc = voxel_length * 4 if voxel_length else None
     put_if_not_none(conf, 'dataset.voxel_length', voxel_length)
     put_if_not_none(conf, 'dataset.sdf_trunc', sdf_trunc)
-    put_if_not_none(conf, 'dataset.max_depth', args.max_depth)
-    put_if_not_none(conf, 'dataset.depth_trunc', args.depth_trunc)
-    put_if_not_none(conf, 'train.expname', args.exp_name)
+    put_if_not_none(conf, 'dataset.max_depth', max_depth)
+    put_if_not_none(conf, 'dataset.depth_trunc', depth_trunc)
+    put_if_not_none(conf, 'train.expname', exp_name)
     put_if_not_none(conf, 'dataset.img_res', img_res)
-    put_if_not_none(conf, 'dataset.mesh_pre_align', args.mesh_pre_align)
+    put_if_not_none(conf, 'dataset.mesh_pre_align', mesh_pre_align)
 
     planar_rec = run_planarSplatting(data=data, conf=conf)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument("-d", "--data_path", type=str, default='path/to/colmap/data', help='path of input colmap data')
+    parser.add_argument("-o", "--out_path", type=str, default='planarSplat_ExpRes/vanilla', help='path of output dir')
+    parser.add_argument("--conf_path", type=str, default='configs/vanilla.conf', help='path of configure file')
+    parser.add_argument('--use_precomputed_data', default=False, action="store_true", help='use processed data from input images')
+    parser.add_argument('--mask', type=str, default=None, help='name of mask folder (None=not using mask)')
+
+    parser.add_argument("--mesh_pre_align", type=bool, default=False, help='Optional pre-alignment of depth maps')
+    parser.add_argument("--voxel_length", type=float, default=None, help='voxel size for TSDF Integration')
+    parser.add_argument("--depth_trunc", type=float, default=None, help='max meaningful depth in TSDF (a threshold that separates target and background)')
+    parser.add_argument("--max_depth", type=float, default=None, help='max meaningful depth in loss function (a threshold that separates target and background)')
+    parser.add_argument("--exp_name", type=str, default=None, help='experiment name for output folder')
+    args = parser.parse_args()
+
+    run_vanilla(
+        data_path=args.data_path,
+        out_path=args.out_path,
+        conf_path=args.conf_path,
+        use_precomputed_data=args.use_precomputed_data,
+        mask=args.mask,
+        mesh_pre_align=args.mesh_pre_align,
+        voxel_length=args.voxel_length,
+        depth_trunc=args.depth_trunc,
+        max_depth=args.max_depth,
+        exp_name=args.exp_name
+    )

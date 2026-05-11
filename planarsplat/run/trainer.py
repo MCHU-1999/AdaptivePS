@@ -13,7 +13,6 @@ from .net_wrapper import PlanarRecWrapper
 from utils.misc_util import setup_logging, get_train_param, save_config_files, prepare_folders, get_class
 from utils.trainer_util import resume_model, calculate_plane_depth, plot_plane_img, save_checkpoints
 from utils.mesh_util import get_coarse_mesh, remove_mesh_attribute
-# from utils.merge_util import merge_plane
 from utils.merge_util_new import merge_plane
 from utils.loss_util import normal_loss, metric_depth_loss
 from utils.model_util import split_planes_xy_via_mask
