@@ -25,7 +25,7 @@ class PlanarSplatTrainRunner():
         self.expname, self.tag, self.timestamp, is_continue = get_train_param(kwargs, self.conf)
         # self.expname, self.timestamp, is_continue = get_train_param(kwargs, self.conf)
         self.expdir, self.plane_plots_dir, self.checkpoints_path, self.model_subdir = prepare_folders(kwargs, self.expname, self.timestamp)
-        setup_logging(os.path.join(self.expdir, 'train.log'))
+        self.train_sink_id = setup_logging(os.path.join(self.expdir, 'train.log'))
         self.loss_sink_id = logger.add(os.path.join(self.expdir, 'loss.log'), format="{time:YYYY-MM-DD HH:mm:ss} | {message}", filter=lambda record: "loss" in record["extra"])
         kwargs['data']['expdir'] = self.expdir
         
@@ -91,6 +91,8 @@ class PlanarSplatTrainRunner():
         logger.info(f'\n====================\nFinished\n  Training: {train_time/60:.2f} minutes\n  Merging: {merge_time/60:.2f} minutes\n  Total: {(train_time+merge_time)/60:.2f} mins\n====================\n\n')
         if hasattr(self, 'loss_sink_id'):
             logger.remove(self.loss_sink_id)
+        if hasattr(self, 'train_sink_id'):
+            logger.remove(self.train_sink_id)
     
     def train(self):
         logger.info("Training...")

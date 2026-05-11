@@ -27,7 +27,7 @@ def fix_seeds(random_seed=42, use_deterministic_algorithms=True):
     torch.use_deterministic_algorithms(use_deterministic_algorithms)
 
 def setup_logging(log_file='my_log.log'):
-    logger.add(log_file, format="{time:YYYY-MM-DD HH:mm:ss} {file}:{line} {level} {message}", level="DEBUG")
+    return logger.add(log_file, format="{time:YYYY-MM-DD HH:mm:ss} {file}:{line} {level} {message}", level="DEBUG")
 
 
 def get_class(kls):
