@@ -168,7 +168,6 @@ class SceneDatasetDemo:
             depth_trunc=depth_trunc
         )
         o3d.io.write_triangle_mesh(self.mono_mesh_dest, mesh)
-        del mono_depths  # free CPU RAM before training starts
 
         # --- Optional Pre-alignment of Depth Maps ---
         if mesh_pre_align:
