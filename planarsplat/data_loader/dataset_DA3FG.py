@@ -264,7 +264,7 @@ class SceneDatasetDemo:
     
     def get_raster_cameras(self, intrinsics_all, poses_all, height, width):
         # zfar = 100.
-        zfar = 250.
+        zfar = 200.
         znear = 0.01
         raster_cam_w2c_list = []
         raster_cam_proj_list = []
