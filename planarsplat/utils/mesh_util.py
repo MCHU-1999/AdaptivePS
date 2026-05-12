@@ -36,7 +36,7 @@ def post_process_mesh(mesh, cluster_to_keep=1):
     n_cluster = max(n_cluster, 50)
     
     triangles_to_remove = cluster_n_triangles[triangle_clusters] < n_cluster
-    mesh.remove_triangles_by_mask(triangles_to_remove)  # ← Modify original mesh
+    mesh.remove_triangles_by_mask(triangles_to_remove)  # Modify original mesh
     mesh.remove_unreferenced_vertices()
     mesh.remove_degenerate_triangles()
     

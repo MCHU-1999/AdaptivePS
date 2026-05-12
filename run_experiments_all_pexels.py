@@ -124,9 +124,12 @@ if __name__ == "__main__":
     #         mask="bldg_masks"
     #     )
     for scene in SCENES:
-        run_vanilla(
-            data_path=scene['data_path'],
-            exp_name=scene['exp_name'],
-            out_path="Vanilla/Pexels",
-            conf_path="configs/vanilla.conf",
-        )
+        try:
+            run_vanilla(
+                data_path=scene['data_path'],
+                exp_name=scene['exp_name'],
+                out_path="Vanilla/Pexels",
+                conf_path="configs/vanilla.conf",
+            )
+        except:
+            

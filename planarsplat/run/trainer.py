@@ -78,21 +78,27 @@ class PlanarSplatTrainRunner():
         self.data_order = self.conf.get_string('train.data_order')
 
     def run(self):
-        start_time = time.time()
-        self.train()
-        train_time = time.time() - start_time
-        logger.info(f'Training finished in {train_time/60:.2f} minutes.')
-        
-        start_time = time.time()
-        self.merger()
-        merge_time = time.time() - start_time
-        logger.info(f'Merging finished in {merge_time/60:.2f} minutes.')
-        
-        logger.info(f'\n====================\nFinished\n  Training: {train_time/60:.2f} minutes\n  Merging: {merge_time/60:.2f} minutes\n  Total: {(train_time+merge_time)/60:.2f} mins\n====================\n\n')
-        if hasattr(self, 'loss_sink_id'):
-            logger.remove(self.loss_sink_id)
-        if hasattr(self, 'train_sink_id'):
-            logger.remove(self.train_sink_id)
+        try:
+            start_time = time.time()
+            self.train()
+            train_time = time.time() - start_time
+            logger.info(f'Training finished in {train_time/60:.2f} minutes.')
+            
+            start_time = time.time()
+            self.merger()
+            merge_time = time.time() - start_time
+            logger.info(f'Merging finished in {merge_time/60:.2f} minutes.')
+            
+            logger.info(f'\n====================\nFinished\n  Training: {train_time/60:.2f} minutes\n  Merging: {merge_time/60:.2f} minutes\n  Total: {(train_time+merge_time)/60:.2f} mins\n====================\n\n')
+        except Exception as e:
+            logger.error(f"An error occurred: {e}")
+            # logger.exception("Full traceback below:")
+            # raise  # Re-raise the exception if you still want the script to exit with an error code
+        finally:
+            if hasattr(self, 'loss_sink_id'):
+                logger.remove(self.loss_sink_id)
+            if hasattr(self, 'train_sink_id'):
+                logger.remove(self.train_sink_id)
     
     def train(self):
         logger.info("Training...")
@@ -198,10 +204,6 @@ class PlanarSplatTrainRunner():
         self.net.prune_small_plane(min_radii=0.02)
         logger.info("number of 3D planar primitives = %d"%(self.net.planarSplat.get_plane_num()))
 
-        # # The 3rd version, but using mesh to trim is kinda unfair
-        # ref_mesh = trimesh.load_mesh(self.dataset.mono_mesh_dest)
-        # -----------------------------------------------------------
-        # The 2nd version
         ref_mesh = get_coarse_mesh(
             self.net, 
             self.dataset.view_info_list.copy(), 
@@ -217,16 +219,6 @@ class PlanarSplatTrainRunner():
             o3d.io.write_triangle_mesh(
                         save_path, 
                         ref_mesh)
-        # -----------------------------------------------------------
-        # # The very original verison looks like this:
-        # ref_mesh = get_coarse_mesh(
-        #     self.net, 
-        #     self.dataset.view_info_list.copy(), 
-        #     self.H, 
-        #     self.W, 
-        #     voxel_length=0.02, 
-        #     sdf_trunc=0.08
-        # )
         
         merge_config_coarse = self.conf.get_config('merge_coarse', default=None)
         merge_config_fine = self.conf.get_config('merge_fine', default=None)

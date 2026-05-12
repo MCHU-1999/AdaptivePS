@@ -80,21 +80,27 @@ class PlanarSplatTrainRunner():
         self.data_order = self.conf.get_string('train.data_order')
 
     def run(self):
-        start_time = time.time()
-        self.train()
-        train_time = time.time() - start_time
-        logger.info(f'Training finished in {train_time/60:.2f} minutes.')
-        
-        start_time = time.time()
-        self.merger()
-        merge_time = time.time() - start_time
-        logger.info(f'Merging finished in {merge_time/60:.2f} minutes.')
-        
-        logger.info(f'\n====================\nFinished\n  Training: {train_time/60:.2f} minutes\n  Merging: {merge_time/60:.2f} minutes\n  Total: {(train_time+merge_time)/60:.2f} mins\n====================\n\n')
-        if hasattr(self, 'loss_sink_id'):
-            logger.remove(self.loss_sink_id)
-        if hasattr(self, 'train_sink_id'):
-            logger.remove(self.train_sink_id)
+        try:
+            start_time = time.time()
+            self.train()
+            train_time = time.time() - start_time
+            logger.info(f'Training finished in {train_time/60:.2f} minutes.')
+            
+            start_time = time.time()
+            self.merger()
+            merge_time = time.time() - start_time
+            logger.info(f'Merging finished in {merge_time/60:.2f} minutes.')
+            
+            logger.info(f'\n====================\nFinished\n  Training: {train_time/60:.2f} minutes\n  Merging: {merge_time/60:.2f} minutes\n  Total: {(train_time+merge_time)/60:.2f} mins\n====================\n\n')
+        except Exception as e:
+            logger.error(f"An error occurred: {e}")
+            # logger.exception("Full traceback below:")
+            # raise
+        finally:
+            if hasattr(self, 'loss_sink_id'):
+                logger.remove(self.loss_sink_id)
+            if hasattr(self, 'train_sink_id'):
+                logger.remove(self.train_sink_id)
     
     def train(self):
         logger.info("Training...")
