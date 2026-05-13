@@ -123,7 +123,7 @@ class PlanarSplatTrainRunner():
             # ======================================= process planes
             if iter > self.coarse_stage_ite and iter % self.process_plane_freq_ite==0:  
                 self.net.regularize_plane_shape()
-                self.net.prune_small_plane()
+                self.net.prune_small_plane(min_radii=self.voxel_length)
                 if iter > self.split_start_ite and iter <= self.max_total_iters - 1000:
                     ori_num = self.net.planarSplat.get_plane_num()
                     self.net.split_plane()
@@ -204,7 +204,7 @@ class PlanarSplatTrainRunner():
         # os.makedirs(save_root, exist_ok=True)
 
         ## prune planes whose maximum radii lower than the threshold
-        self.net.prune_small_plane(min_radii=0.02)
+        self.net.prune_small_plane(min_radii=self.voxel_length)
         logger.info("number of 3D planar primitives = %d"%(self.net.planarSplat.get_plane_num()))
 
         ref_mesh = get_coarse_mesh(
