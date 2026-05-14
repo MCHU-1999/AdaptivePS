@@ -71,10 +71,10 @@ class PlanarSplatTrainRunner():
 
         # ======================================= training settings
         self.max_total_iters = self.conf.get_int('train.max_total_iters')
-        self.process_plane_freq_ite = self.conf.get_int('train.process_plane_freq_ite')
+        self.process_plane_freq = self.conf.get_int('train.process_plane_freq')
         self.coarse_stage_ite = self.conf.get_int('train.coarse_stage_ite')
         self.split_start_ite = self.conf.get_int('train.split_start_ite')
-        self.check_vis_freq_ite = self.conf.get_int('train.check_plane_vis_freq_ite')
+        self.check_vis_freq_ite = self.conf.get_int('train.check_plane_vis_freq')
         self.data_order = self.conf.get_string('train.data_order')
 
     def run(self):
@@ -119,7 +119,7 @@ class PlanarSplatTrainRunner():
         for iter in range(self.start_iter, self.max_total_iters + 1):
             self.iter_step = iter
             # ======================================= process planes
-            if iter > self.coarse_stage_ite and iter % self.process_plane_freq_ite==0:  
+            if iter > self.coarse_stage_ite and iter % self.process_plane_freq==0:  
                 self.net.regularize_plane_shape()
                 self.net.prune_small_plane(min_radii=self.voxel_length)
                 if iter > self.split_start_ite and iter <= self.max_total_iters - 1000:

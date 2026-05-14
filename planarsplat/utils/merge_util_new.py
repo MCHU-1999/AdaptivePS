@@ -27,9 +27,7 @@ def merge_plane(
     view_info_list=None,
     H: Optional[int]=None,
     W: Optional[int]=None,
-    depth_trunc: float=5.0,
-    bg_trim_enabled: bool=False,
-    bg_trim_max_bg_ratio: float=0.4,
+    trim_enabled: bool=False,
 ):
     torch.use_deterministic_algorithms(False)
     min_pts_num = max((0.1/space_resolution)**2, min_pts_num)
@@ -58,15 +56,14 @@ def merge_plane(
     pts_ins_assignment_masked[dist_pts2mesh_original > mesh_dist_thresh] = 0
 
     ## mask the bg points as well
-    if bg_trim_enabled and view_info_list is not None and H is not None and W is not None:
-        pts_ins_assignment_masked = mask_points_by_bg_depth(
+    if trim_enabled and view_info_list is not None and H is not None and W is not None:
+        pts_ins_assignment_masked = mask_points_in_bg(
             pts_world=pts_original,
             pts_ins_assignment=pts_ins_assignment_masked,
             view_info_list=view_info_list,
             H=H,
             W=W,
-            depth_trunc=depth_trunc,
-            max_bg_ratio=bg_trim_max_bg_ratio,
+            max_bg_ratio=0.4,
         )
 
     ## split planes into different group via normal 
@@ -179,14 +176,12 @@ def merge_plane(
     
     return planar_mesh, plane_ins_id_new
 
-def mask_points_by_bg_depth(
+def mask_points_in_bg(
     pts_world,
     pts_ins_assignment,
     view_info_list,
     H,
     W,
-    bg_depth_eps=1e-6,
-    depth_trunc=5.0,
     max_bg_ratio=0.4
 ):
     with torch.no_grad():
