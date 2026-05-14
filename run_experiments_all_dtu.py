@@ -9,7 +9,7 @@ from run_vanilla import run_vanilla
 # CONST
 MY_STORAGE = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
 BD_NUM = [
-    6, 9, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 28, 29, 43, 44, 46
+    0, 6, 9, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 28, 29, 43, 44, 46
 ]
 BD_SCENES = [
     # DTU Building Datasets
