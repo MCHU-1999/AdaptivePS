@@ -206,4 +206,6 @@ def da3_inference_all_scenes(scenes):
         save_runtime_json(RUNTIME_LOG_PATH, {scene_name: round(t.elapsed, 2)})
         logger.info(f"DA3 [{scene_name}] runtime: {t.elapsed:.2f}s")
 
+    del model
+    torch.cuda.empty_cache()
     return None
