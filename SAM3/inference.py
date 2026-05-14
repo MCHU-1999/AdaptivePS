@@ -6,6 +6,9 @@ from loguru import logger
 import torch
 from sam3.model_builder import build_sam3_video_predictor, build_sam3_multiplex_video_predictor
 from sam3.visualization_utils import prepare_masks_for_visualization
+from planarsplat.utils.timing_util import Timer, save_runtime_json
+
+RUNTIME_LOG_PATH = "runtime_logs/sam.json"
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 
@@ -253,33 +256,37 @@ def sam_inference_all_scenes(scenes):
         predictor = build_sam3_video_predictor()
 
         for scene in scenes:
-            logger.info(f"SAM Inference on scene: {scene['exp_name']}")
+            scene_name = scene['exp_name']
+            logger.info(f"SAM Inference on scene: {scene_name}")
 
-            # Building masks
-            combined_mask_per_frame = inference_bldg_video(predictor, scene, scene['bldg_mask_mode'])
-            saved, no_mask, out_dir = save_masks_by_frame_index(
-                combined_mask_per_frame,
-                f"{scene['data_path']}/images",
-                scene['data_path'],
-                'bldg_masks',
-                mode=1
-            )
-            logger.info(f"{scene['exp_name']}: saved {saved} bldg_masks, {no_mask} of them are empty")
+            with Timer() as t:
+                # Building masks
+                combined_mask_per_frame = inference_bldg_video(predictor, scene, scene['bldg_mask_mode'])
+                saved, no_mask, out_dir = save_masks_by_frame_index(
+                    combined_mask_per_frame,
+                    f"{scene['data_path']}/images",
+                    scene['data_path'],
+                    'bldg_masks',
+                    mode=1
+                )
+                logger.info(f"{scene_name}: saved {saved} bldg_masks, {no_mask} of them are empty")
 
-            if not scene.get('gnd_prompt'):
-                logger.info(f"{scene['exp_name']} has no gnd_prompt, moving on.")
-                continue
+                if not scene.get('gnd_prompt'):
+                    logger.info(f"{scene_name} has no gnd_prompt, moving on.")
+                else:
+                    # Ground masks
+                    combined_mask_per_frame = inference_gnd_video(predictor, scene)
+                    saved, no_mask, out_dir = save_masks_by_frame_index(
+                        combined_mask_per_frame,
+                        f"{scene['data_path']}/images",
+                        scene['data_path'],
+                        'gnd_masks',
+                        mode=0
+                    )
+                    logger.info(f"{scene_name}: saved {saved} gnd_masks, {no_mask} of them are empty")
 
-            # Ground masks
-            combined_mask_per_frame = inference_gnd_video(predictor, scene)
-            saved, no_mask, out_dir = save_masks_by_frame_index(
-                combined_mask_per_frame,
-                f"{scene['data_path']}/images",
-                scene['data_path'],
-                'gnd_masks',
-                mode=0
-            )
-            logger.info(f"{scene['exp_name']}: saved {saved} gnd_masks, {no_mask} of them are empty")
+            save_runtime_json(RUNTIME_LOG_PATH, {scene_name: round(t.elapsed, 2)})
+            logger.info(f"SAM [{scene_name}] runtime: {t.elapsed:.2f}s")
 
         # after all inference is done, we can shutdown the predictor
         # to free up the multi-GPU process group

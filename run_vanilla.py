@@ -11,8 +11,11 @@ from utils_demo.run_planarSplatting import run_planarSplatting
 from utils_demo.read_write_model import read_model
 from planarsplat.data_process.colmap_io import read_extrinsics_binary, read_extrinsics_text, read_intrinsics_binary, read_intrinsics_text, qvec2rotmat
 from planarsplat.utils.misc_util import put_if_not_none
+from planarsplat.utils.timing_util import Timer, save_runtime_json
 from PIL import Image
 import cv2
+
+RUNTIME_LOG_PATH = "runtime_logs/vanilla.json"
 
 
 # modified from https://github.com/graphdeco-inria/gaussian-splatting/blob/main/utils/make_depth_scale.py
@@ -73,6 +76,19 @@ def get_scales(key, cameras, images, points3d_ordered, invmonodepthmap):
 
 
 def run_vanilla(data_path, out_path, conf_path, use_precomputed_data=False, mask=None, mesh_pre_align=False, voxel_length=None, depth_trunc=None, max_depth=None, exp_name=None):
+    scene_name = exp_name or os.path.basename(data_path.rstrip('/'))
+    with Timer() as t_total:
+        _run_vanilla(
+            data_path=data_path, out_path=out_path, conf_path=conf_path,
+            use_precomputed_data=use_precomputed_data, mask=mask,
+            mesh_pre_align=mesh_pre_align, voxel_length=voxel_length,
+            depth_trunc=depth_trunc, max_depth=max_depth, exp_name=exp_name,
+            scene_name=scene_name,
+        )
+    save_runtime_json(RUNTIME_LOG_PATH, {scene_name: {"total_s": round(t_total.elapsed, 2)}})
+
+
+def _run_vanilla(data_path, out_path, conf_path, use_precomputed_data=False, mask=None, mesh_pre_align=False, voxel_length=None, depth_trunc=None, max_depth=None, exp_name=None, scene_name=None):
     USE_MASK = False
     if mask is not None:
         mask_folder_name = mask
@@ -170,12 +186,14 @@ def run_vanilla(data_path, out_path, conf_path, use_precomputed_data=False, mask
                 fg_masks_list.append(np.squeeze(fg_mask))
 
         # run metric3dv2
-        if USE_MASK:
-            depth_paths, normal_paths = predict_masked_mono_geo(
-                img_name_list, color_images_list, fg_masks_list, intrinsics_list, depth_save_dir, normal_save_dir)
-        else:
-            depth_paths, normal_paths = predict_mono_geo_demo(
-                img_name_list, color_images_list, intrinsics_list, depth_save_dir, normal_save_dir)
+        with Timer() as t_m3d:
+            if USE_MASK:
+                depth_paths, normal_paths = predict_masked_mono_geo(
+                    img_name_list, color_images_list, fg_masks_list, intrinsics_list, depth_save_dir, normal_save_dir)
+            else:
+                depth_paths, normal_paths = predict_mono_geo_demo(
+                    img_name_list, color_images_list, intrinsics_list, depth_save_dir, normal_save_dir)
+        save_runtime_json(RUNTIME_LOG_PATH, {scene_name: {"metric3dv2_s": round(t_m3d.elapsed, 2)}})
         
         img_res = [h, w]
         del color_images_list

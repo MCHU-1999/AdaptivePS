@@ -5,7 +5,10 @@ import math
 from typing import NamedTuple, List, Dict
 from depth_anything_3.api import DepthAnything3
 from loguru import logger
+from planarsplat.utils.timing_util import Timer, save_runtime_json
 
+
+RUNTIME_LOG_PATH = "runtime_logs/da3.json"
 
 class Dataset(NamedTuple):
     img_paths_list: np.ndarray | List[str]
@@ -168,7 +171,8 @@ def da3_inference_all_scenes(scenes):
     model = model.to(device=device)
 
     for scene in scenes:
-        logger.info(f"DA3 Inference on scene: {scene['exp_name']}")
+        scene_name = scene['exp_name']
+        logger.info(f"DA3 Inference on scene: {scene_name}")
         data_dir = scene["data_path"]
         dataset = read_dataset(data_dir)
 
@@ -176,27 +180,30 @@ def da3_inference_all_scenes(scenes):
         K_synthetic = synthesize_intrinsics(dataset.width, dataset.height, fov_deg=75)
         intrinsics = np.stack([K_synthetic] * dataset.N, axis=0)
 
-        # Export depth data and 3D visualization
-        prediction = model.inference(
-            image=dataset.img_paths_list,
-            extrinsics=None,
-            intrinsics=intrinsics,
-            export_dir=data_dir,
-            export_format="planarsplatting-colmap",
-            process_res=420,
-            # process_res=840,
-            process_res_method="upper_bound_resize",
-            export_kwargs={
-                "planarsplatting": {
-                    "img_name_list": dataset.img_name_list,
-                    "img_res": [dataset.height, dataset.width]
-                }
-            },
-            show_cameras=False,
-            conf_thresh_percentile=40,
-            num_max_points=100_000,
-            bldg_mask_paths=dataset.bldg_mask_paths,
-            gnd_mask_paths=dataset.gnd_mask_paths
-        )
+        with Timer() as t:
+            # Export depth data and 3D visualization
+            prediction = model.inference(
+                image=dataset.img_paths_list,
+                extrinsics=None,
+                intrinsics=intrinsics,
+                export_dir=data_dir,
+                export_format="planarsplatting-colmap",
+                process_res=420,
+                # process_res=840,
+                process_res_method="upper_bound_resize",
+                export_kwargs={
+                    "planarsplatting": {
+                        "img_name_list": dataset.img_name_list,
+                        "img_res": [dataset.height, dataset.width]
+                    }
+                },
+                show_cameras=False,
+                conf_thresh_percentile=40,
+                num_max_points=100_000,
+                bldg_mask_paths=dataset.bldg_mask_paths,
+                gnd_mask_paths=dataset.gnd_mask_paths
+            )
+        save_runtime_json(RUNTIME_LOG_PATH, {scene_name: round(t.elapsed, 2)})
+        logger.info(f"DA3 [{scene_name}] runtime: {t.elapsed:.2f}s")
 
     return None

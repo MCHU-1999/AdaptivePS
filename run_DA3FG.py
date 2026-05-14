@@ -11,8 +11,11 @@ from utils_demo.run_planarSplatting import run_planarSplatting
 from utils_demo.read_write_model import read_model
 from planarsplat.data_process.colmap_io import read_extrinsics_binary, read_extrinsics_text, read_intrinsics_binary, read_intrinsics_text, qvec2rotmat
 from planarsplat.utils.misc_util import put_if_not_none
+from planarsplat.utils.timing_util import Timer, save_runtime_json
 from PIL import Image
 import cv2
+
+RUNTIME_LOG_PATH = "runtime_logs/adaptiveps.json"
 
 
 def get_depth_normal_paths(depth_prior_path: str, normal_prior_path: str, img_name_list: list[str]):
@@ -39,7 +42,27 @@ def get_depth_normal_paths(depth_prior_path: str, normal_prior_path: str, img_na
 
     return depth_paths, normal_paths
 
-def run_planarsplatting(
+def run_adaptivePS(
+    data_path: str = 'path/to/colmap/data',
+    out_path: str = 'planarSplat_ExpRes/DA3FG',
+    conf_path: str = 'configs/DA3FG.conf',
+    use_precomputed_data: bool = False,
+    mask: str = None,
+    voxel_length: float = None,
+    max_depth: float = None,
+    exp_name: str = None,
+):
+    scene_name = exp_name or os.path.basename(data_path.rstrip('/'))
+    with Timer() as t:
+        _run_adaptiveps(
+            data_path=data_path, out_path=out_path, conf_path=conf_path,
+            use_precomputed_data=use_precomputed_data, mask=mask,
+            voxel_length=voxel_length, max_depth=max_depth, exp_name=exp_name,
+        )
+    save_runtime_json(RUNTIME_LOG_PATH, {scene_name: round(t.elapsed, 2)})
+
+
+def _run_adaptiveps(
     data_path: str = 'path/to/colmap/data',
     out_path: str = 'planarSplat_ExpRes/DA3FG',
     conf_path: str = 'configs/DA3FG.conf',
@@ -194,7 +217,7 @@ if __name__ == '__main__':
     parser.add_argument("--exp_name", type=str, default=None, help='experiment name for output folder')
     args = parser.parse_args()
 
-    run_planarsplatting(
+    run_adaptivePS(
         data_path=args.data_path,
         out_path=args.out_path,
         conf_path=args.conf_path,

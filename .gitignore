@@ -2,6 +2,8 @@
 .DS_Store
 SAM3/hf_token.txt
 data/
+evaluation/runtime_logs/
+
 exps*/
 checkpoints/
 *.pyc
@@ -13,6 +15,7 @@ checkpoints/
 *.egg-info/
 *build/
 tmp*/
+
 planarSplat_ExpRes/
 TSDF_test/
 my_experiments/

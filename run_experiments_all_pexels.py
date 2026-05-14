@@ -1,7 +1,7 @@
 import subprocess, sys, os
 from DA3.inference import da3_inference_all_scenes, da3_inference_a_scene
 from SAM3.inference import set_hf_token_from_txt, sam_inference_all_scenes, sam_inference_a_scene
-from run_DA3FG import run_planarsplatting
+from run_DA3FG import run_adaptivePS
 from run_vanilla import run_vanilla
 
 # =================================================================
@@ -136,10 +136,10 @@ if __name__ == "__main__":
 
     ## PlanarSplatting
     # for scene in SCENES:
-    #     run_planarsplatting(
+    #     run_adaptivePS(
     #         data_path=scene['data_path'],
     #         exp_name=scene['exp_name'],
-    #         out_path="A3_progress/Pexels",
+    #         out_path="AdaptivePS/Pexels",
     #         conf_path="configs/DA3FG++big.conf",
     #         mask="bldg_masks"
     #     )

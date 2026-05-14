@@ -5,12 +5,12 @@ import math
 from typing import NamedTuple, List, Dict
 from depth_anything_3.api import DepthAnything3
 from loguru import logger
-
+from planarsplat.utils.timing_util import Timer, save_runtime_json
 from typing import NamedTuple, List, Dict
 
 
 NPZ_PATH = os.path.join(os.path.dirname(__file__), "dtu_cameras.npz")
-
+RUNTIME_LOG_PATH = "runtime_logs/da3.json"
 
 class DtuDataset(NamedTuple):
     extrinsics_list: np.ndarray     # (N, 4, 4)
@@ -111,29 +111,33 @@ def da3_inference_all_scenes(scenes):
     model = model.to(device=device)
 
     for scene in scenes:
-        logger.info(f"DA3 Inference on scene: {scene['exp_name']}")
+        scene_name = scene['exp_name']
+        logger.info(f"DA3 Inference on scene: {scene_name}")
         data_dir = scene["data_path"]
         dataset = read_dtu_dataset(data_dir, NPZ_PATH)
 
-        # Export depth data and 3D visualization
-        prediction = model.inference(
-            image=dataset.img_paths_list,
-            extrinsics=dataset.extrinsics_list,
-            intrinsics=dataset.intrinsics_list,
-            export_dir=data_dir,
-            export_format="planarsplatting-colmap",
-            process_res=420,
-            # process_res=840,
-            process_res_method="upper_bound_resize",
-            export_kwargs={
-                "planarsplatting": {
-                    "img_name_list": dataset.img_name_list,
-                    "img_res": [dataset.height, dataset.width]
-                }
-            },
-            show_cameras=False,
-            conf_thresh_percentile=40,
-            num_max_points=100_000,
-        )
+        with Timer() as t:
+            # Export depth data and 3D visualization
+            prediction = model.inference(
+                image=dataset.img_paths_list,
+                extrinsics=dataset.extrinsics_list,
+                intrinsics=dataset.intrinsics_list,
+                export_dir=data_dir,
+                export_format="planarsplatting-colmap",
+                process_res=420,
+                # process_res=840,
+                process_res_method="upper_bound_resize",
+                export_kwargs={
+                    "planarsplatting": {
+                        "img_name_list": dataset.img_name_list,
+                        "img_res": [dataset.height, dataset.width]
+                    }
+                },
+                show_cameras=False,
+                conf_thresh_percentile=40,
+                num_max_points=100_000,
+            )
+        save_runtime_json(RUNTIME_LOG_PATH, {scene_name: round(t.elapsed, 2)})
+        logger.info(f"DA3 [{scene_name}] runtime: {t.elapsed:.2f}s")
 
     return None
