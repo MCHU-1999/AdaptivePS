@@ -97,12 +97,12 @@ if __name__ == "__main__":
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
             out_path="Vanilla/DTU-Building",
-            conf_path="configs/vanilla.conf",
+            conf_path="configs/vanilla-DTU.conf",
         )
     for scene in BD_LIKE_SCENES:
         run_vanilla(
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
             out_path="Vanilla/DTU-Building-like",
-            conf_path="configs/vanilla.conf",
+            conf_path="configs/vanilla-DTU.conf",
         )

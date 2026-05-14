@@ -165,7 +165,8 @@ class SceneDatasetDemo:
             img_res[1],
             voxel_length=voxel_length,
             sdf_trunc=sdf_trunc,
-            depth_trunc=depth_trunc
+            depth_trunc=depth_trunc,
+            process_mesh=False
         )
         o3d.io.write_triangle_mesh(self.mono_mesh_dest, mesh)
 

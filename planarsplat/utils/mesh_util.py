@@ -52,7 +52,8 @@ def refuse_mesh(
     voxel_length: float=0.05, 
     sdf_trunc: float=0.08, 
     depth_trunc: float=5.0,
-    depth_scale: float=1.0
+    depth_scale: float=1.0,
+    process_mesh: bool=True
 ):
     volume = o3d.pipelines.integration.ScalableTSDFVolume(
         voxel_length=voxel_length,
@@ -80,8 +81,7 @@ def refuse_mesh(
 
     mesh = volume.extract_triangle_mesh()
 
-    # return mesh
-    return post_process_mesh(mesh)
+    return post_process_mesh(mesh) if process_mesh else mesh
 
 def get_coarse_mesh(
     net, 
@@ -90,7 +90,8 @@ def get_coarse_mesh(
     W: int, 
     voxel_length: float=0.05, 
     sdf_trunc: float=0.08,
-    depth_trunc: float=5.0
+    depth_trunc: float=5.0,
+    process_mesh: bool=True
 ):
     """
     Generates a coarse mesh by rendering depth maps from the current state of the planes and then 
@@ -113,8 +114,15 @@ def get_coarse_mesh(
         depth = allmap[0:1].squeeze().reshape(H, W).cpu().numpy()
         depths.append(depth)
 
-    mesh = refuse_mesh(depths, poses, intrinsics, H, W, voxel_length=voxel_length, sdf_trunc=sdf_trunc, depth_trunc=depth_trunc)
+    mesh = refuse_mesh(
+        depths, poses, intrinsics, H, W, 
+        voxel_length=voxel_length, 
+        sdf_trunc=sdf_trunc, 
+        depth_trunc=depth_trunc, 
+        process_mesh=process_mesh
+    )
     return mesh
+
 
 class Renderer():
     def __init__(self, height=480, width=640):

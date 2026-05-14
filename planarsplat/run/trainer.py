@@ -211,7 +211,8 @@ class PlanarSplatTrainRunner():
             self.W, 
             voxel_length=self.voxel_length, 
             sdf_trunc=self.sdf_trunc,
-            depth_trunc=self.depth_trunc
+            depth_trunc=self.depth_trunc,
+            process_mesh=False
         )
         if debug_output:
             save_path = os.path.join(save_root, f"ref_mesh.ply")
