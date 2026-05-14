@@ -10,7 +10,7 @@ from typing import NamedTuple, List, Dict
 
 
 NPZ_PATH = os.path.join(os.path.dirname(__file__), "dtu_cameras.npz")
-RUNTIME_LOG_PATH = "runtime_logs/da3.json"
+RUNTIME_LOG_PATH = "evaluation/runtime_logs/da3.json"
 
 class DtuDataset(NamedTuple):
     extrinsics_list: np.ndarray     # (N, 4, 4)

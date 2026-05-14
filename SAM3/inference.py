@@ -8,7 +8,7 @@ from sam3.model_builder import build_sam3_video_predictor, build_sam3_multiplex_
 from sam3.visualization_utils import prepare_masks_for_visualization
 from planarsplat.utils.timing_util import Timer, save_runtime_json
 
-RUNTIME_LOG_PATH = "runtime_logs/sam.json"
+RUNTIME_LOG_PATH = "evaluation/runtime_logs/sam.json"
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 

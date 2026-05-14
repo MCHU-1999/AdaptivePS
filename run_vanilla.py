@@ -15,7 +15,7 @@ from planarsplat.utils.timing_util import Timer, save_runtime_json
 from PIL import Image
 import cv2
 
-RUNTIME_LOG_PATH = "runtime_logs/vanilla.json"
+RUNTIME_LOG_PATH = "evaluation/runtime_logs/vanilla.json"
 
 
 # modified from https://github.com/graphdeco-inria/gaussian-splatting/blob/main/utils/make_depth_scale.py

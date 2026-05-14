@@ -8,7 +8,7 @@ from loguru import logger
 from planarsplat.utils.timing_util import Timer, save_runtime_json
 
 
-RUNTIME_LOG_PATH = "runtime_logs/da3.json"
+RUNTIME_LOG_PATH = "evaluation/runtime_logs/da3.json"
 
 class Dataset(NamedTuple):
     img_paths_list: np.ndarray | List[str]

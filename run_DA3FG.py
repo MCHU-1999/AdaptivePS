@@ -15,7 +15,7 @@ from planarsplat.utils.timing_util import Timer, save_runtime_json
 from PIL import Image
 import cv2
 
-RUNTIME_LOG_PATH = "runtime_logs/adaptiveps.json"
+RUNTIME_LOG_PATH = "evaluation/runtime_logs/adaptiveps.json"
 
 
 def get_depth_normal_paths(depth_prior_path: str, normal_prior_path: str, img_name_list: list[str]):

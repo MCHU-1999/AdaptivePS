@@ -9,7 +9,7 @@ from planarsplat.data_process.colmap_io import read_extrinsics_binary, read_extr
 from planarsplat.utils.timing_util import Timer, save_runtime_json
 from typing import NamedTuple, List, Dict
 
-RUNTIME_LOG_PATH = "runtime_logs/da3.json"
+RUNTIME_LOG_PATH = "evaluation/runtime_logs/da3.json"
 
 
 class ColmapDataset(NamedTuple):
