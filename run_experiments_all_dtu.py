@@ -74,7 +74,7 @@ if __name__ == "__main__":
     ## DA3
     da3_inference_all_scenes(AllDTU)
 
-    ## PlanarSplatting
+    ## AdaptivePS
     for scene in BD_SCENES:
         run_adaptivePS(
             data_path=scene['data_path'],
@@ -92,6 +92,7 @@ if __name__ == "__main__":
             mask="bldg_masks"
         )
 
+    ## Vanilla PlanarSplatting
     for scene in BD_SCENES:
         run_vanilla(
             data_path=scene['data_path'],
