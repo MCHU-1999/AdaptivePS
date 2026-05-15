@@ -69,10 +69,10 @@ if __name__ == "__main__":
     AllDTU = BD_SCENES + BD_LIKE_SCENES
 
     ## SAM3
-    sam_inference_all_scenes(AllDTU)
+    # sam_inference_all_scenes(AllDTU)
 
     ## DA3
-    da3_inference_all_scenes(AllDTU)
+    # da3_inference_all_scenes(AllDTU)
 
     ## AdaptivePS
     for scene in BD_SCENES:
