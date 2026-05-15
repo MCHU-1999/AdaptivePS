@@ -232,7 +232,6 @@ class PlanarSplatTrainRunner():
                 # New parameters for trimming bg points
                 view_info_list=self.dataset.view_info_list,
                 H=self.H, W=self.W,
-                depth_trunc=self.depth_trunc,
                 # The rest
                 **merge_config_coarse
             )
@@ -246,7 +245,6 @@ class PlanarSplatTrainRunner():
                     # New parameters for trimming bg points
                     view_info_list=self.dataset.view_info_list,
                     H=self.H, W=self.W,
-                    depth_trunc=self.depth_trunc,
                     # The rest
                     **merge_config_fine
                 )
