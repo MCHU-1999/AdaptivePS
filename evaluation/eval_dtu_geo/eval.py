@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     pbar.update(1)
     pbar.set_description('masking data pcd')
-    obs_mask_file = loadmat(f'{args.dataset_dir}/ObsMask/ObsMask{args.scan}_10.mat')
+    obs_mask_file = loadmat(f'{args.dataset_dir}/ObsMask{args.scan}_10.mat')
     ObsMask, BB, Res = [obs_mask_file[attr] for attr in ['ObsMask', 'BB', 'Res']]
     BB = BB.astype(np.float32)
 
