@@ -294,3 +294,44 @@ def render_DNs(mesh, poses, intrinsics, H, W, nodata=0.0):
     finally:
         renderer.delete()
     return rendered_depths, rendered_normals
+
+###
+# Below are functions for rendering experiment results
+def render_rgb(mesh, poses, intrinsics, H, W):
+    mesh_opengl = pyrender.Mesh.from_trimesh(mesh)
+    renderer = FastRenderer(mesh_opengl, height=H, width=W)
+    
+    rendered_rgbs = []
+    try:
+        for pose, K in tqdm(zip(poses, intrinsics), total=len(poses)):
+            rgb, _ = renderer.render_frame(H, W, K, pose)
+            rendered_rgbs.append(rgb)
+    finally:
+        renderer.delete()
+    return rendered_rgbs
+
+def render_DNs_color(mesh, poses, intrinsics, H, W):
+    """
+    Render both depths and normals (Normals in RGB space)
+    """
+    # Extract vertex normals and normalize them to RGB space
+    # Formula: RGB = (Normals + 1) / 2
+    normals = mesh.vertex_normals
+    rgb_normals = (normals + 1.0) / 2.0 
+    rgb_normals_uint8 = (rgb_normals * 255.0).astype(np.uint8)
+    mesh.visual.vertex_colors = rgb_normals_uint8
+
+    # Create Pyrender mesh
+    mesh_opengl = pyrender.Mesh.from_trimesh(mesh)
+    renderer = FastRenderer(mesh_opengl, height=H, width=W)
+    
+    rendered_depths = []
+    rendered_normals = []
+    try:
+        for pose, K in tqdm(zip(poses, intrinsics), total=len(poses)):
+            normal_pred, depth_pred = renderer.render_frame(H, W, K, pose)
+            rendered_normals.append(normal_pred)
+            rendered_depths.append(depth_pred)
+    finally:
+        renderer.delete()
+    return rendered_depths, rendered_normals

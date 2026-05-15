@@ -6,6 +6,7 @@ from tqdm import tqdm
 from scipy.io import loadmat
 import multiprocessing as mp
 import argparse
+from fscore import fscore
 
 def sample_single_tri(input_):
     n1, n2, v1, v2, tri_vert = input_
@@ -156,11 +157,21 @@ if __name__ == '__main__':
     pbar.close()
     over_all = (mean_d2s + mean_s2d) / 2
     print(mean_d2s, mean_s2d, over_all)
-    
+
+    # F-score at standard DTU thresholds (in mm, matching max_dist units)
+    fscore_results = {}
+    for thresh_mm in [0.5, 1.0, 2.0, 5.0]:
+        f, prec, rec = fscore(dist_d2s, dist_s2d, threshold=thresh_mm)
+        fscore_results[f'fscore@{thresh_mm}mm'] = round(f, 6)
+        fscore_results[f'precision@{thresh_mm}mm'] = round(prec, 6)
+        fscore_results[f'recall@{thresh_mm}mm'] = round(rec, 6)
+        print(f'F-score@{thresh_mm}mm: {f:.4f}  (P={prec:.4f}, R={rec:.4f})')
+
     import json
     with open(f'{args.vis_out_dir}/results.json', 'w') as fp:
         json.dump({
             'mean_d2s': mean_d2s,
             'mean_s2d': mean_s2d,
             'overall': over_all,
+            **fscore_results,
         }, fp, indent=True)
