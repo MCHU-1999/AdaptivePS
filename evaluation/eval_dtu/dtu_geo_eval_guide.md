@@ -46,14 +46,14 @@ The expected folder structure is:
 ## Usage
 
 ```bash
-cd /path/to/PGSR/scripts/eval_dtu_geo
+cd /path/to/PGSR/scripts/eval_dtu
 
 python eval.py \
-    --data         /path/to/your/scan24.ply \
+    --data         /Users/mchu/Documents/TUD/Thesis/PlanarSplatting/AdaptivePS/DTU-Building/scan24_DA3FG/2026_05_15_12_16_38/planar_mesh.ply \
     --scan         24 \
     --mode         mesh \
-    --dataset_dir  /path/to/dtu_eval \
-    --vis_out_dir  /path/to/output/scan24
+    --dataset_dir  /Users/mchu/Documents/TUD/Thesis/DTU_GT \
+    --vis_out_dir  results/scan24
 ```
 
 The output directory (`--vis_out_dir`) will be created automatically if it does not exist.

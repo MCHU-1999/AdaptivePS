@@ -1,4 +1,5 @@
 # adapted from https://github.com/jzhangbs/DTUeval-python
+import os
 import numpy as np
 import open3d as o3d
 import sklearn.neighbors as skln
@@ -27,6 +28,7 @@ def write_vis_pcd(file, points, colors):
 
 if __name__ == '__main__':
     mp.freeze_support()
+    mp.set_start_method('fork', force=True)   # avoids open3d re-import failures in spawned workers (macOS)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', type=str, default='data_in.ply')
@@ -38,13 +40,19 @@ if __name__ == '__main__':
     parser.add_argument('--patch_size', type=float, default=60)
     parser.add_argument('--max_dist', type=float, default=20)
     parser.add_argument('--visualize_threshold', type=float, default=10)
+    parser.add_argument('--scale', type=float, default=100.0,
+                        help='Scale factor applied to the reconstructed mesh/pcd (default 100: meters -> mm to match DTU GT)')
     args = parser.parse_args()
+
+    os.makedirs(args.vis_out_dir, exist_ok=True)   # ensure output dir exists before any writes
+    data_path = os.path.abspath(args.data)
+
 
     thresh = args.downsample_density
     if args.mode == 'mesh':
         pbar = tqdm(total=9)
         pbar.set_description('read data mesh')
-        data_mesh = o3d.io.read_triangle_mesh(args.data)
+        data_mesh = o3d.io.read_triangle_mesh(data_path)
 
         vertices = np.asarray(data_mesh.vertices)
         triangles = np.asarray(data_mesh.triangles)
@@ -74,8 +82,12 @@ if __name__ == '__main__':
     elif args.mode == 'pcd':
         pbar = tqdm(total=8)
         pbar.set_description('read data pcd')
-        data_pcd_o3d = o3d.io.read_point_cloud(args.data)
+        data_pcd_o3d = o3d.io.read_point_cloud(data_path)
         data_pcd = np.asarray(data_pcd_o3d.points)
+
+    # Scale reconstructed points to match GT coordinate system (meters → mm by default)
+    if args.scale != 1.0:
+        data_pcd = data_pcd * args.scale
 
     pbar.update(1)
     pbar.set_description('random shuffle pcd index')
@@ -96,7 +108,7 @@ if __name__ == '__main__':
 
     pbar.update(1)
     pbar.set_description('masking data pcd')
-    obs_mask_file = loadmat(f'{args.dataset_dir}/ObsMask{args.scan}_10.mat')
+    obs_mask_file = loadmat(f'{args.dataset_dir}/ObsMask/ObsMask{args.scan}_10.mat')
     ObsMask, BB, Res = [obs_mask_file[attr] for attr in ['ObsMask', 'BB', 'Res']]
     BB = BB.astype(np.float32)
 
@@ -112,7 +124,7 @@ if __name__ == '__main__':
 
     pbar.update(1)
     pbar.set_description('read STL pcd')
-    stl_pcd = o3d.io.read_point_cloud(f'{args.dataset_dir}/Points/stl/stl{args.scan:03}_total.ply')
+    stl_pcd = o3d.io.read_point_cloud(f'{args.dataset_dir}/stl/stl{args.scan:03}_total.ply')
     stl = np.asarray(stl_pcd.points)
 
     pbar.update(1)
