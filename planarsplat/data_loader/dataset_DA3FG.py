@@ -197,6 +197,7 @@ class SceneDatasetDemo:
         logger.info(f'Loaded {len(mono_depths)} depth maps for mesh generation')
 
         # Generate and save the initial coarse mesh from monocular depth maps.
+        process_mesh = kwargs.get('process_mesh', True)
         mesh = refuse_mesh(
             mono_depths,
             [x.cpu().numpy() for x in self.poses_all],
@@ -205,7 +206,8 @@ class SceneDatasetDemo:
             img_res[1],
             voxel_length=voxel_length,
             sdf_trunc=sdf_trunc,
-            depth_trunc=self.depth_trunc
+            depth_trunc=self.depth_trunc,
+            process_mesh=process_mesh
         )
         o3d.io.write_triangle_mesh(self.mono_mesh_dest, mesh)
         del mono_depths  # free CPU RAM before training starts

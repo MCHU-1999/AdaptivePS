@@ -79,6 +79,10 @@ class PlanarSplatTrainRunner():
         self.check_vis_freq_ite = self.conf.get_int('train.check_plane_vis_freq')
         self.data_order = self.conf.get_string('train.data_order')
 
+        # ======================================= ablation settings
+        self.process_mesh = self.conf.get_bool('ablation.process_mesh', True)
+        self.split_n_prune = self.conf.get_bool('ablation.split_n_prune', True)
+
     def run(self):
         try:
             start_time = time.time()
@@ -186,12 +190,18 @@ class PlanarSplatTrainRunner():
                 plot_plane_img(self)
                 self.net.train()
             
-            if iter > self.coarse_stage_ite and iter % self.check_vis_freq_ite == 0:
-                self.check_plane_visibility_cuda_plus_plus()
-            elif iter > 0 and iter % self.check_vis_freq_ite == 0:
+            if self.split_n_prune:
+                if iter > self.coarse_stage_ite and iter % self.check_vis_freq_ite == 0:
+                    self.check_plane_visibility_cuda_plus_plus()
+                elif iter > 0 and iter % self.check_vis_freq_ite == 0:
+                    self.check_plane_visibility_cuda()
+            else:
                 self.check_plane_visibility_cuda()
-        
-        self.check_plane_visibility_cuda_plus_plus(lastdog=True)
+
+        if self.split_n_prune:
+            self.check_plane_visibility_cuda_plus_plus(lastdog=True)
+        else:
+            self.check_plane_visibility_cuda()
         save_checkpoints(self, iter=self.iter_step, only_latest=False)
 
     def merger(self, save_mesh=True, save_mesh_for_KSR=True, debug_output=False):
@@ -214,7 +224,8 @@ class PlanarSplatTrainRunner():
             self.W, 
             voxel_length=self.voxel_length, 
             sdf_trunc=self.sdf_trunc,
-            depth_trunc=self.depth_trunc
+            depth_trunc=self.depth_trunc,
+            process_mesh=self.process_mesh
         )
         if debug_output:
             save_path = os.path.join(save_root, f"ref_mesh.ply")

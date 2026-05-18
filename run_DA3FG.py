@@ -51,6 +51,7 @@ def run_adaptivePS(
     voxel_length: float = None,
     max_depth: float = None,
     exp_name: str = None,
+    runtime_log_path = None
 ):
     scene_name = exp_name or os.path.basename(data_path.rstrip('/'))
     with Timer() as t:
@@ -59,7 +60,10 @@ def run_adaptivePS(
             use_precomputed_data=use_precomputed_data, mask=mask,
             voxel_length=voxel_length, max_depth=max_depth, exp_name=exp_name,
         )
-    save_runtime_json(RUNTIME_LOG_PATH, {scene_name: round(t.elapsed, 2)})
+    if runtime_log_path is not None:
+        save_runtime_json(runtime_log_path, {scene_name: round(t.elapsed, 2)})
+    else:
+        save_runtime_json(RUNTIME_LOG_PATH, {scene_name: round(t.elapsed, 2)})
 
 
 def _run_adaptiveps(
@@ -77,6 +81,7 @@ def _run_adaptiveps(
     else:
         depth_prior_path = os.path.join(data_path, "DA3_depth")
         normal_prior_path = os.path.join(data_path, "DA3_normal")
+        # normal_prior_path = os.path.join(data_path, "mono_normal")
 
     image_path = os.path.join(data_path, 'images')
     if not os.path.exists(image_path):
@@ -199,6 +204,7 @@ def _run_adaptiveps(
     put_if_not_none(conf, 'dataset.pts_path', pts_path)
     put_if_not_none(conf, 'train.expname', exp_name)
     put_if_not_none(conf, 'dataset.img_res', img_res)
+    put_if_not_none(conf, 'dataset.process_mesh', conf.get_bool('ablation.process_mesh', True))
 
     planar_rec = run_planarSplatting(data=data, conf=conf)
     return planar_rec
