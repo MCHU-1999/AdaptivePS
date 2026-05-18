@@ -30,7 +30,7 @@ if __name__ == "__main__":
     set_hf_token_from_txt(token_path)
 
     ## SAM3
-    # sam_inference_all_scenes(SCENES)
+    sam_inference_all_scenes(SCENES)
 
     ## DA3
     da3_inference_all_scenes(SCENES)
