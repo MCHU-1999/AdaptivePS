@@ -196,7 +196,8 @@ class PlanarSplatTrainRunner():
                 elif iter > 0 and iter % self.check_vis_freq_ite == 0:
                     self.check_plane_visibility_cuda()
             else:
-                self.check_plane_visibility_cuda()
+                if iter % self.check_vis_freq_ite == 0:
+                    self.check_plane_visibility_cuda()
 
         if self.split_n_prune:
             self.check_plane_visibility_cuda_plus_plus(lastdog=True)

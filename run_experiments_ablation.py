@@ -25,15 +25,15 @@ BD_SCENES = [
 if __name__ == "__main__":
 
     ## w/o Mesh post-processing
-    for scene in BD_SCENES:
-        run_adaptivePS(
-            data_path=scene['data_path'],
-            exp_name=scene['exp_name'],
-            out_path="Ablation/No1mesh",
-            conf_path="configs/DA3FG++DTU-no1mesh.conf",
-            mask="bldg_masks",
-            runtime_log_path="evaluation/runtime_logs/ablation_no1mesh.json"
-        )
+    # for scene in BD_SCENES:
+    #     run_adaptivePS(
+    #         data_path=scene['data_path'],
+    #         exp_name=scene['exp_name'],
+    #         out_path="Ablation/No1mesh",
+    #         conf_path="configs/DA3FG++DTU-no1mesh.conf",
+    #         mask="bldg_masks",
+    #         runtime_log_path="evaluation/runtime_logs/ablation_no1mesh.json"
+    #     )
 
     ## w/o Mask-Guided Densification & Pruning
     for scene in BD_SCENES:
