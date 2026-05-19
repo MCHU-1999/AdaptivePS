@@ -57,6 +57,26 @@ def write_color_distances(path, pcd, distances, max_distance):
     o3d.io.write_point_cloud(path, pcd)
 
 
+def compute_chamfer(source, target, trans, crop_volume, voxel_size):
+    """Compute Chamfer Distance between source (reconstruction) and target (GT).
+    Both are cropped and voxel-downsampled identically to EvaluateHisto.
+    Returns mean_d2s, mean_s2d, and overall (their average).
+    """
+    s = copy.deepcopy(source)
+    s.transform(trans)
+    s = crop_volume.crop_point_cloud(s)
+    s = s.voxel_down_sample(voxel_size)
+
+    t = copy.deepcopy(target)
+    t = crop_volume.crop_point_cloud(t)
+    t = t.voxel_down_sample(voxel_size)
+
+    mean_d2s = float(np.mean(np.array(s.compute_point_cloud_distance(t))))
+    mean_s2d = float(np.mean(np.array(t.compute_point_cloud_distance(s))))
+    overall = (mean_d2s + mean_s2d) / 2.0
+    return mean_d2s, mean_s2d, overall
+
+
 def EvaluateHisto(
     source,
     target,
@@ -134,6 +154,12 @@ def EvaluateHisto(
     # os.system(eval_str_viewDT)
     # write_color_distances(target_n_fn, t, distance2, 3 * threshold)
 
+    # Colorize point clouds by per-point precision and recall error distances
+    source_n_fn = filename_mvs + "/" + scene_name + ".precision.ply"
+    target_n_fn = filename_mvs + "/" + scene_name + ".recall.ply"
+    write_color_distances(source_n_fn, s, distance1, 3 * threshold)
+    write_color_distances(target_n_fn, t, distance2, 3 * threshold)
+
     # get histogram and f-score
     [
         precision,
@@ -150,6 +176,23 @@ def EvaluateHisto(
     np.savetxt(
         filename_mvs + "/" + scene_name + ".prf_tau_plotstr.txt",
         np.array([precision, recall, fscore, threshold, plot_stretch]),
+    )
+
+    # Chamfer Distance (reuse already-computed per-point distances)
+    mean_d2s = float(np.mean(np.array(distance1)))
+    mean_s2d = float(np.mean(np.array(distance2)))
+    overall = (mean_d2s + mean_s2d) / 2.0
+    print("")
+    print("chamfer distance : %s" % scene_name)
+    print("==============================")
+    print("mean_d2s  : %.4f" % mean_d2s)
+    print("mean_s2d  : %.4f" % mean_s2d)
+    print("overall   : %.4f" % overall)
+    print("==============================")
+    np.savetxt(
+        filename_mvs + "/" + scene_name + ".chamfer.txt",
+        np.array([mean_d2s, mean_s2d, overall]),
+        header="mean_d2s mean_s2d overall",
     )
 
     return [

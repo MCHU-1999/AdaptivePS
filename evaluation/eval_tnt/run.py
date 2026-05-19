@@ -47,7 +47,7 @@ from registration import (
     registration_unif,
     read_trajectory,
 )
-from evaluation import EvaluateHisto
+from evaluation import EvaluateHisto, compute_chamfer
 from util import make_dir
 from plot import plot_graph
 
@@ -158,94 +158,6 @@ def run_evaluation(dataset_dir, traj_path, ply_path, out_dir):
     )
 
 
-def run_evaluation_no_registration(dataset_dir, ply_path, out_dir):
-    """
-    Simplified evaluation that skips trajectory alignment and ICP registration.
-    Uses the ground-truth transformation matrix (_trans.txt) directly.
-    Assumes the reconstruction is already in the same coordinate frame as the GT.
-    """
-    scene = os.path.basename(os.path.normpath(dataset_dir))
-
-    if scene not in scenes_tau_dict:
-        print(dataset_dir, scene)
-        raise Exception("invalid dataset-dir, not in scenes_tau_dict")
-
-    print("")
-    print("===========================")
-    print("Evaluating %s (no registration)" % scene)
-    print("===========================")
-
-    dTau = scenes_tau_dict[scene]
-    alignment = os.path.join(dataset_dir, scene + "_trans.txt")
-    gt_filen = os.path.join(dataset_dir, scene + ".ply")
-    cropfile = os.path.join(dataset_dir, scene + ".json")
-
-    make_dir(out_dir)
-
-    # Load reconstruction and GT
-    print(ply_path)
-    mesh = o3d.io.read_triangle_mesh(ply_path)
-    mesh.remove_unreferenced_vertices()
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(mesh.vertices)
-    print(gt_filen)
-    gt_pcd = o3d.io.read_point_cloud(gt_filen)
-
-    # Use the GT alignment transform directly — no ICP or RANSAC
-    transformation = np.loadtxt(alignment)
-
-    vol = o3d.visualization.read_selection_polygon_volume(cropfile)
-    dist_threshold = dTau
-    plot_stretch = 5
-
-    [
-        precision,
-        recall,
-        fscore,
-        edges_source,
-        cum_source,
-        edges_target,
-        cum_target,
-    ] = EvaluateHisto(
-        pcd,
-        gt_pcd,
-        transformation,
-        vol,
-        dTau / 2.0,
-        dTau,
-        out_dir,
-        plot_stretch,
-        scene,
-    )
-    eva = [precision, recall, fscore]
-    print("==============================")
-    print("evaluation result : %s" % scene)
-    print("==============================")
-    print("distance tau : %.3f" % dTau)
-    print("precision : %.4f" % eva[0])
-    print("recall : %.4f" % eva[1])
-    print("f-score : %.4f" % eva[2])
-    print("==============================")
-
-    plot_graph(
-        scene,
-        fscore,
-        dist_threshold,
-        edges_source,
-        cum_source,
-        edges_target,
-        cum_target,
-        plot_stretch,
-        out_dir,
-    )
-    out_file = os.path.join(out_dir, 'result.csv')
-    with open(out_file, 'w', newline='') as f:
-        writer = csv.writer(f)
-        name = ['precision','recall','fscore']
-        writer.writerow(name)
-        writer.writerow(eva)
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -280,14 +192,9 @@ if __name__ == "__main__":
         args.out_dir = os.path.join(os.path.dirname(args.ply_path),
                                     "evaluation")
 
-    # run_evaluation(
-    #     dataset_dir=args.dataset_dir,
-    #     traj_path=args.traj_path,
-    #     ply_path=args.ply_path,
-    #     out_dir=args.out_dir,
-    # )
-    run_evaluation_no_registration(
+    run_evaluation(
         dataset_dir=args.dataset_dir,
+        traj_path=args.traj_path,
         ply_path=args.ply_path,
         out_dir=args.out_dir,
     )
