@@ -80,8 +80,8 @@ def _run_adaptiveps(
         raise ValueError(f'The input data path {data_path} does not exist.')
     else:
         depth_prior_path = os.path.join(data_path, "DA3_depth")
-        normal_prior_path = os.path.join(data_path, "DA3_normal")
-        # normal_prior_path = os.path.join(data_path, "mono_normal")
+        # normal_prior_path = os.path.join(data_path, "DA3_normal")
+        normal_prior_path = os.path.join(data_path, "mono_normal")
 
     image_path = os.path.join(data_path, 'images')
     if not os.path.exists(image_path):

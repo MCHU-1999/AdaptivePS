@@ -24,7 +24,18 @@ BD_SCENES = [
 
 if __name__ == "__main__":
 
-    ## w/o Mesh post-processing
+    ## Swap normal source
+    for scene in BD_SCENES:
+        run_adaptivePS(
+            data_path=scene['data_path'],
+            exp_name=scene['exp_name'],
+            out_path="Ablation/Normalswap",
+            conf_path="configs/DA3FG++DTU.conf",
+            mask="bldg_masks",
+            runtime_log_path="evaluation/runtime_logs/ablation_normalswap.json"
+        )
+
+    # ## w/o Mesh post-processing
     # for scene in BD_SCENES:
     #     run_adaptivePS(
     #         data_path=scene['data_path'],
@@ -35,26 +46,26 @@ if __name__ == "__main__":
     #         runtime_log_path="evaluation/runtime_logs/ablation_no1mesh.json"
     #     )
 
-    ## w/o Mask-Guided Densification & Pruning
-    for scene in BD_SCENES:
-        run_adaptivePS(
-            data_path=scene['data_path'],
-            exp_name=scene['exp_name'],
-            out_path="Ablation/Nosplit",
-            conf_path="configs/DA3FG++DTU-nosplit.conf",
-            mask="bldg_masks",
-            runtime_log_path="evaluation/runtime_logs/ablation_nosplit.json"
-        )
+    # ## w/o Mask-Guided Densification & Pruning
+    # for scene in BD_SCENES:
+    #     run_adaptivePS(
+    #         data_path=scene['data_path'],
+    #         exp_name=scene['exp_name'],
+    #         out_path="Ablation/Nosplit",
+    #         conf_path="configs/DA3FG++DTU-nosplit.conf",
+    #         mask="bldg_masks",
+    #         runtime_log_path="evaluation/runtime_logs/ablation_nosplit.json"
+    #     )
 
-    ## w/o Final Mask-Guided Trim
-    for scene in BD_SCENES:
-        run_adaptivePS(
-            data_path=scene['data_path'],
-            exp_name=scene['exp_name'],
-            out_path="Ablation/Notrim",
-            conf_path="configs/DA3FG++DTU-notrim.conf",
-            mask="bldg_masks",
-            runtime_log_path="evaluation/runtime_logs/ablation_notrim.json"
-        )
+    # ## w/o Final Mask-Guided Trim
+    # for scene in BD_SCENES:
+    #     run_adaptivePS(
+    #         data_path=scene['data_path'],
+    #         exp_name=scene['exp_name'],
+    #         out_path="Ablation/Notrim",
+    #         conf_path="configs/DA3FG++DTU-notrim.conf",
+    #         mask="bldg_masks",
+    #         runtime_log_path="evaluation/runtime_logs/ablation_notrim.json"
+    #     )
 
 
