@@ -157,5 +157,91 @@ def main():
     print("\\label{tab:dtu_results}")
     print("\\end{table}")
 
+def main_chamfer_detailed():
+    """Table comparing all 3 Chamfer components: Acc. (mean_d2s), Comp. (mean_s2d), Overall."""
+    base_dir = '/Users/mchu/Documents/TUD/Thesis/PlanarSplatting'
+    vanilla_dir = os.path.join(base_dir, 'Vanilla/eval_results')
+    adaptive_dir = os.path.join(base_dir, 'AdaptivePS/eval_results')
+
+    vanilla_results = load_results(vanilla_dir)
+    adaptive_results = load_results(adaptive_dir)
+
+    scans = set(vanilla_results.keys()).intersection(set(adaptive_results.keys()))
+    scans = sorted(list(scans), key=lambda x: int(x.replace('scan', '')))
+
+    cd_metrics = ['mean_d2s', 'mean_s2d', 'overall']
+
+    vanilla_means = {m: [] for m in cd_metrics}
+    adaptive_means = {m: [] for m in cd_metrics}
+
+    def format_pair(val_b, val_a, is_lower_better=True):
+        if val_b is None and val_a is None:
+            return "-", "-"
+        str_b = f"{val_b:.2f}" if val_b is not None else "-"
+        str_a = f"{val_a:.2f}" if val_a is not None else "-"
+        if val_b is not None and val_a is not None:
+            if is_lower_better:
+                if val_b < val_a:
+                    str_b = f"\\best{{{str_b}}}"
+                elif val_a < val_b:
+                    str_a = f"\\best{{{str_a}}}"
+            else:
+                if val_b > val_a:
+                    str_b = f"\\best{{{str_b}}}"
+                elif val_a > val_b:
+                    str_a = f"\\best{{{str_a}}}"
+        return str_b, str_a
+
+    print("\\begin{table}[!htbp]")
+    print("\\centering")
+    print("\\small")
+    print("% Define a shortcut for the best cells (background + bold text)")
+    print("\\newcommand{\\best}[1]{\\cellcolor{cyan!20}\\textbf{#1}}")
+    print("")
+    print("\\begin{tabularx}{\\linewidth}{l *{6}{>{\\centering\\arraybackslash}X}}")
+    print("\\toprule")
+    print("& \\multicolumn{2}{c}{Acc. $\\downarrow$} & \\multicolumn{2}{c}{Comp. $\\downarrow$} & \\multicolumn{2}{c}{Overall $\\downarrow$} \\\\")
+    print("\\cmidrule(lr){2-3} \\cmidrule(lr){4-5} \\cmidrule(lr){6-7}")
+    print("Scan & Baseline & AdaptivePS & Baseline & AdaptivePS & Baseline & AdaptivePS \\\\")
+    print("\\midrule")
+
+    for scan in scans:
+        v_res = vanilla_results.get(scan, {})
+        a_res = adaptive_results.get(scan, {})
+
+        vals = {}
+        for m in cd_metrics:
+            vals[f'v_{m}'] = v_res.get(m, None)
+            vals[f'a_{m}'] = a_res.get(m, None)
+            if vals[f'v_{m}'] is not None: vanilla_means[m].append(vals[f'v_{m}'])
+            if vals[f'a_{m}'] is not None: adaptive_means[m].append(vals[f'a_{m}'])
+
+        s_d2s_b, s_d2s_a = format_pair(vals['v_mean_d2s'], vals['a_mean_d2s'])
+        s_s2d_b, s_s2d_a = format_pair(vals['v_mean_s2d'], vals['a_mean_s2d'])
+        s_ov_b,  s_ov_a  = format_pair(vals['v_overall'],  vals['a_overall'])
+
+        row = [scan.replace('scan', ''), s_d2s_b, s_d2s_a, s_s2d_b, s_s2d_a, s_ov_b, s_ov_a]
+        print(" & ".join(row) + " \\\\")
+
+    print("\\midrule")
+
+    def mean_or_none(lst):
+        return np.mean(lst) if lst else None
+
+    m_d2s_b, m_d2s_a = format_pair(mean_or_none(vanilla_means['mean_d2s']), mean_or_none(adaptive_means['mean_d2s']))
+    m_s2d_b, m_s2d_a = format_pair(mean_or_none(vanilla_means['mean_s2d']), mean_or_none(adaptive_means['mean_s2d']))
+    m_ov_b,  m_ov_a  = format_pair(mean_or_none(vanilla_means['overall']),  mean_or_none(adaptive_means['overall']))
+
+    mean_row = ["Mean", m_d2s_b, m_d2s_a, m_s2d_b, m_s2d_a, m_ov_b, m_ov_a]
+    print(" & ".join(mean_row) + " \\\\")
+
+    print("\\bottomrule")
+    print("\\end{tabularx}")
+    print("\\caption{Detailed Chamfer Distance breakdown on the DTU dataset. Acc.\\ (mean\\_d2s) and Comp.\\ (mean\\_s2d) are measured in mm. Shaded cells indicate top performance.}")
+    print("\\label{tab:dtu_chamfer_detailed}")
+    print("\\end{table}")
+
+
 if __name__ == '__main__':
-    main()
+    main_chamfer_detailed()
+

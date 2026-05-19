@@ -36,7 +36,7 @@ def main(base_dir):
         return
 
     # Assuming structure: base_dir -> scan_folder -> run_folder(s) -> train.log
-    scans = sorted([d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d)) and 'scan' in d.lower()])
+    scans = sorted([d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))])
     
     print(f"{'Scan':<15} {'Instances':<10}")
     print("-" * 80)
@@ -69,8 +69,9 @@ def main(base_dir):
 # ==============================================================
 # MY_STORAGE      = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
 MY_STORAGE      = "/Users/mchu/Documents/TUD/Thesis"
-RESULTS_DIR     = "AdaptivePS/DTU-Building"
+# RESULTS_DIR     = "AdaptivePS/DTU-Building"
 # RESULTS_DIR     = "Vanilla/DTU-Building"
+RESULTS_DIR     = "Vanilla/TnT"
 # ==============================================================
 
 if __name__ == "__main__":

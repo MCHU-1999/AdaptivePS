@@ -75,8 +75,8 @@ def plot_graph(
     ax.grid(True)
     plt.rcParams["figure.figsize"] = plt_size
     plt.rc("axes", prop_cycle=cycler("color", ["r", "g", "b", "y"]))
-    plt.title("Precision and Recall: " + scene + ", " + "%02.2f f-score" %
-              (fscore * 100))
+    plt.title("Precision and Recall: " + scene + ", " + "%02.4f f-score" %
+              (fscore))
     plt.axvline(x=dist_threshold, c="black", ls="dashed", linewidth=2.0)
 
     plt.ylabel("# of points (%)", fontsize=15)

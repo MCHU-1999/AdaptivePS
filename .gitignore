@@ -3,8 +3,7 @@
 SAM3/hf_token.txt
 data/
 evaluation/runtime_logs/
-evaluation/eval_tnt/results
-evaluation/eval_tnt/results*
+evaluation/eval_tnt/*/
 
 exps*/
 checkpoints/
@@ -25,3 +24,4 @@ A2_progress/
 A3_progress/
 Vanilla/
 AdaptivePS/
+Ablation/
