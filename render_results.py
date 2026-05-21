@@ -167,11 +167,16 @@ def find_latest_run(scene_dir):
     return os.path.join(scene_dir, entries[-1])
 
 
-def render_scene(ply_path, colmap_dir, scan_name, out_dir):
+def render_scene(ply_path, colmap_dir, scan_name, out_dir, indices=None):
     """Render RGB (and optionally D+N) for one PLY using the COLMAP cameras.
     Outputs go to:
       out_dir/rendered_rgb/{scan_name}/
       out_dir/rendered_dn/{scan_name}/
+
+    Args:
+        indices: optional list of integer indices into the camera list.
+                 e.g. [1, 3] renders only names[1] and names[3].
+                 If None (default), renders all cameras.
     """
     print(f"\n{'='*60}")
     print(f"  PLY:    {ply_path}")
@@ -182,6 +187,18 @@ def render_scene(ply_path, colmap_dir, scan_name, out_dir):
 
     poses, intrinsics, H, W, names = read_colmap_cameras(colmap_dir)
     print(f"  Cameras: {len(poses)} @ {W}x{H}")
+
+    # Filter to requested indices if provided
+    if indices is not None:
+        n = len(poses)
+        valid = [i for i in indices if i < n]
+        skipped = [i for i in indices if i >= n]
+        if skipped:
+            print(f"  Skipping indices out of range (n={n}): {skipped}")
+        poses      = [poses[i]      for i in valid]
+        intrinsics = [intrinsics[i] for i in valid]
+        names      = [names[i]      for i in valid]
+        print(f"  Rendering subset: {valid} → {len(poses)} camera(s)")
 
     rgb_dir = os.path.join(out_dir, "rendered_rgb", scan_name)
     dn_dir  = os.path.join(out_dir, "rendered_dn",  scan_name)
@@ -212,7 +229,7 @@ def save_images(images, names, out_dir, suffix, as_depth=False):
         else:
             Image.fromarray(img.astype(np.uint8)).save(out_path)
 
-def render_all(results_dir: str, out_dir: str):
+def render_all(results_dir: str, out_dir: str, indices=None):
     if not os.path.isdir(results_dir):
         raise FileNotFoundError(f"Results dir not found: {results_dir}")
 
@@ -244,7 +261,7 @@ def render_all(results_dir: str, out_dir: str):
             continue
 
         try:
-            render_scene(ply_path, colmap_dir, scan_name=scan_name, out_dir=out_dir)
+            render_scene(ply_path, colmap_dir, scan_name=scan_name, out_dir=out_dir, indices=indices)
         except Exception as e:
             import traceback
             print(f"[ERROR] {scene_folder}: {e}")
@@ -258,12 +275,14 @@ def render_all(results_dir: str, out_dir: str):
 # ==============================================================
 # MY_STORAGE      = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
 MY_STORAGE      = "/Users/mchu/Documents/TUD/Thesis"
-RESULTS_DIR     = "Vanilla/DTU-Building"      # root containing scanXX_DA3FG/ subdirs
-DATA_BASE_DIR   = f"{MY_STORAGE}/DTU_ALL/Building"  # scanXX/ subdirs live here
+RESULTS_DIR     = "AdaptivePS/TnT"         # root containing scanXX_DA3FG/ subdirs
+DATA_BASE_DIR   = f"{MY_STORAGE}/TNT_GOF/TrainingSet"  # scanXX/ subdirs live here
 PLY_NAME        = "planar_mesh.ply"
-OUTPUT_DIR      = "Vanilla"                         # rendered_rgb/{scan} and rendered_dn/{scan} go here
+OUTPUT_DIR      = "AdaptivePS"                         # rendered_rgb/{scan} and rendered_dn/{scan} go here
 # ==============================================================
 
 
 if __name__ == "__main__":
-    render_all(RESULTS_DIR, out_dir=OUTPUT_DIR)
+    # INDICES = [0, 25, 45, 75, 100, 125, 150]
+    INDICES = [i for i in range(0, 400, 25)]
+    render_all(RESULTS_DIR, out_dir=OUTPUT_DIR, indices=INDICES)
