@@ -82,23 +82,13 @@ class ViewInfo(nn.Module):
             self._mono_depth_cache = depth.reshape(-1)  # hw
         return self._mono_depth_cache
     
-    # def _load_normals(self):
-    #     """In a DA3 dataset thed normals are actually in world coordinates and raw"""
-    #     if self._mono_normal_global_cache is None:
-    #         normal = np.load(self.normal_path)  # Shape: (H, W, 3)
-    #         normal_global = torch.from_numpy(normal).cuda().float()
-    #         normal_global = normal_global.view(-1, 3)
-            
-    #         self._mono_normal_global_cache = normal_global
-    #     return self._mono_normal_global_cache
-    
     def _load_normals(self):
-        """Lazy load normal maps and transform to global"""
+        """In a DA3 dataset thed normals are actually in world coordinates and raw"""
         if self._mono_normal_global_cache is None:
-            normal = np.load(self.normal_path)  # Shape: (3, H, W)
-            normal_local = torch.from_numpy(normal).cuda().float() * 2.0 - 1.0
-            # Transform to global coordinates
-            normal_global = (normal_local.permute(1,2,0) @ (self.pose[:3,:3].T)).view(-1, 3)
+            normal = np.load(self.normal_path)  # Shape: (H, W, 3)
+            normal_global = torch.from_numpy(normal).cuda().float()
+            normal_global = normal_global.view(-1, 3)
+            
             self._mono_normal_global_cache = normal_global
         return self._mono_normal_global_cache
     
