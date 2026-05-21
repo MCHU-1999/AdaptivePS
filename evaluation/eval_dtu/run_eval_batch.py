@@ -18,8 +18,8 @@ import subprocess
 # ==============================================================
 # CONFIG
 # ==============================================================
-RESULTS_DIR = "Vanilla/DTU-Building"          # contains scanXX_DA3FG/ subdirs
-VIS_OUT_DIR = "Vanilla/eval_results"  # where results go
+RESULTS_DIR = "Ablation/Notrim"                    # contains scanXX_DA3FG/ subdirs
+VIS_OUT_DIR = "Ablation/Notrim/eval_results"       # where results go
 DATASET_DIR = "/Users/mchu/Documents/TUD/Thesis/DTU_GT"
 PLY_NAME    = "planar_mesh.ply"
 SCALE       = 100.0   # meters → mm to match DTU GT

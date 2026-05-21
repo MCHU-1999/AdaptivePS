@@ -157,8 +157,8 @@ def EvaluateHisto(
     # Colorize point clouds by per-point precision and recall error distances
     source_n_fn = filename_mvs + "/" + scene_name + ".precision.ply"
     target_n_fn = filename_mvs + "/" + scene_name + ".recall.ply"
-    write_color_distances(source_n_fn, s, distance1, 3 * threshold)
-    write_color_distances(target_n_fn, t, distance2, 3 * threshold)
+    write_color_distances(source_n_fn, s, distance1, 0.065)
+    write_color_distances(target_n_fn, t, distance2, 0.065)
 
     # get histogram and f-score
     [
