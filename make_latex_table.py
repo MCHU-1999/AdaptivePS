@@ -276,13 +276,15 @@ def main_ablation():
 
     BASE_DIR = '/Users/mchu/Documents/TUD/Thesis/PlanarSplatting'
 
-    # (label, results_dir, runs_dir)
     VARIANTS = [
-        ("Replace normal source",                          "Ablation/Normalswap/eval_results", "Ablation/Normalswap"),
-        ("w/o Mesh post-processing",                       "Ablation/No1mesh/eval_results",    "Ablation/No1mesh"),
-        ("w/o Mask-Guided Densification \\& Pruning",      "Ablation/Nosplit/eval_results",     "Ablation/Nosplit"),
-        ("w/o Final Mask-Guided Trim",                     "Ablation/Notrim/eval_results",      "Ablation/Notrim"),
-        ("Full model",                                     "AdaptivePS/eval_results", "AdaptivePS/DTU-Building"),
+        ("Replace normal source", "Ablation/Normalswap/eval_results", "Ablation/Normalswap", "normal"),
+        ("w/o Mesh post-processing", "Ablation/No1mesh/eval_results", "Ablation/No1mesh", "loo_first"),
+        ("w/o Mask-Guided Densification \\& Pruning", "Ablation/Nosplit/eval_results", "Ablation/Nosplit", "loo"),
+        ("w/o Final Mask-Guided Trim", "Ablation/Notrim/eval_results", "Ablation/Notrim", "loo"),
+        ("Only Mesh post-processing", "Ablation/Only1mesh/eval_results", "Ablation/Only1mesh", "iso_first"),
+        ("Only Mask-Guided Densification \\& Pruning", "Ablation/Onlysplit/eval_results", "Ablation/Onlysplit", "iso"),
+        ("Only Final Mask-Guided Trim", "Ablation/Onlytrim/eval_results", "Ablation/Onlytrim", "iso"),
+        ("Full model", "AdaptivePS/eval_results", "AdaptivePS/DTU-Building", "full"),
     ]
 
     def find_latest_run(scene_dir):
@@ -333,11 +335,11 @@ def main_ablation():
     print("\\begin{table}[htbp]")
     print("\\centering")
     print("\\footnotesize")
-    print("\\caption{Ablation study on the DTU \\textit{building} subset (taking mean values).}")
+    print("\\caption{Ablation study on the DTU \\textit{building} subset (taking mean values). \"Red\", \"Orange\" and \"Yellow\" denote the top 1-3 results.}")
     print("\\label{tab:ablation_dtu}")
     print("\\begin{tabular}{l ccc}")
     print("\\toprule")
-    print("Model Setting & Planes no. $\\downarrow$ & CD (mm)$\\downarrow$ & F1-Score @ 2mm $\\uparrow$ \\\\")
+    print("Model Setting & Planes no. $\\downarrow$ & CD (mm)$\\downarrow$ & F1-score @ 2mm $\\uparrow$ \\\\")
     print("\\midrule")
 
     rows_data = []
@@ -345,7 +347,7 @@ def main_ablation():
     cd_vals = []
     f1_vals = []
 
-    for i, (label, eval_rel, runs_rel) in enumerate(VARIANTS):
+    for i, (label, eval_rel, runs_rel, group) in enumerate(VARIANTS):
         eval_abs = os.path.join(BASE_DIR, eval_rel)
         runs_abs = os.path.join(BASE_DIR, runs_rel)
 
@@ -358,7 +360,7 @@ def main_ablation():
             'planes': planes,
             'cd': cd,
             'f1': f1,
-            'is_full': (label == "Full model")
+            'group': group
         })
 
         if planes is not None: planes_vals.append(planes)
@@ -391,11 +393,14 @@ def main_ablation():
         cd_str     = get_color_str(row['cd'], cd_ranked, ".2f")
         f1_str     = get_color_str(row['f1'], f1_ranked, ".2f")
 
-        if row['is_full']:
+        if row['group'] == "loo_first":
             print("\\midrule")
-        else:
-            if i > 0:
-                print("\\addlinespace")
+            print("\\textit{Leave-one-out:} & & & \\\\")
+        elif row['group'] == "iso_first":
+            print("\\midrule")
+            print("\\textit{Isolation:} & & & \\\\")
+        elif row['group'] == "full":
+            print("\\midrule")
 
         print(f"{row['label']} & {planes_str} & {cd_str} & {f1_str} \\\\")
 
