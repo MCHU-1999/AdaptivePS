@@ -18,8 +18,8 @@ import subprocess
 # ==============================================================
 # CONFIG
 # ==============================================================
-RESULTS_DIR = "Ablation/Onlysplit"                    # contains scanXX_DA3FG/ subdirs
-VIS_OUT_DIR = "Ablation/Onlysplit/eval_results"       # where results go
+RESULTS_DIR = "Ablation/Allnone"                    # contains scanXX_DA3FG/ subdirs
+VIS_OUT_DIR = "Ablation/Allnone/eval_results"       # where results go
 DATASET_DIR = "/Users/mchu/Documents/TUD/Thesis/DTU_GT"
 PLY_NAME    = "planar_mesh.ply"
 SCALE       = 100.0   # meters → mm to match DTU GT

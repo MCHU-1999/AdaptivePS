@@ -277,13 +277,14 @@ def main_ablation():
     BASE_DIR = '/Users/mchu/Documents/TUD/Thesis/PlanarSplatting'
 
     VARIANTS = [
-        ("Replace normal source", "Ablation/Normalswap/eval_results", "Ablation/Normalswap", "normal"),
+        ("Replace normal source (to Metric3Dv2 \\citep{hu_metric3dv2_2024})", "Ablation/Normalswap/eval_results", "Ablation/Normalswap", "normal"),
         ("w/o Mesh post-processing", "Ablation/No1mesh/eval_results", "Ablation/No1mesh", "loo_first"),
         ("w/o Mask-Guided Densification \\& Pruning", "Ablation/Nosplit/eval_results", "Ablation/Nosplit", "loo"),
         ("w/o Final Mask-Guided Trim", "Ablation/Notrim/eval_results", "Ablation/Notrim", "loo"),
         ("Only Mesh post-processing", "Ablation/Only1mesh/eval_results", "Ablation/Only1mesh", "iso_first"),
         ("Only Mask-Guided Densification \\& Pruning", "Ablation/Onlysplit/eval_results", "Ablation/Onlysplit", "iso"),
         ("Only Final Mask-Guided Trim", "Ablation/Onlytrim/eval_results", "Ablation/Onlytrim", "iso"),
+        ("All 3 modules disabled", "Ablation/Allnone/eval_results", "Ablation/Allnone", "all_out"),
         ("Full model", "AdaptivePS/eval_results", "AdaptivePS/DTU-Building", "full"),
     ]
 
@@ -399,6 +400,9 @@ def main_ablation():
         elif row['group'] == "iso_first":
             print("\\midrule")
             print("\\textit{Isolation:} & & & \\\\")
+        elif row['group'] == "all_out":
+            print("\\midrule")
+            print("\\textit{Leave-all-out:} & & & \\\\")
         elif row['group'] == "full":
             print("\\midrule")
 

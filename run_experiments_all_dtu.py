@@ -1,4 +1,3 @@
-import run_vanilla
 import os
 from DA3.inference_dtu import da3_inference_all_scenes, da3_inference_a_scene
 from SAM3.inference import set_hf_token_from_txt, sam_inference_all_scenes, sam_inference_a_scene
