@@ -23,74 +23,82 @@ scene = {
 # Main Function
 # ================================================================================
 if __name__ == "__main__":
-
-
-    ## w/o Mesh post-processing
+    ## Swap normal source
     run_adaptivePS(
         data_path=scene['data_path'],
         exp_name=scene['exp_name'],
-        out_path="Ablation_tnt/No1mesh",
-        conf_path="configs/DA3FG++Barn-no1mesh.conf",
+        out_path="Ablation_tnt/Normalswap",
+        conf_path="configs/DA3FG++Barn.conf",
         mask="bldg_masks",
-        runtime_log_path="evaluation/runtime_logs_tnt/ablation_no1mesh.json"
+        runtime_log_path="evaluation/runtime_logs_tnt/ablation_normalswap.json"
     )
 
-    ## w/o Mask-Guided Densification & Pruning
-    run_adaptivePS(
-        data_path=scene['data_path'],
-        exp_name=scene['exp_name'],
-        out_path="Ablation_tnt/Nosplit",
-        conf_path="configs/DA3FG++Barn-nosplit.conf",
-        mask="bldg_masks",
-        runtime_log_path="evaluation/runtime_logs_tnt/ablation_nosplit.json"
-    )
+    # ## w/o Mesh post-processing
+    # run_adaptivePS(
+    #     data_path=scene['data_path'],
+    #     exp_name=scene['exp_name'],
+    #     out_path="Ablation_tnt/No1mesh",
+    #     conf_path="configs/DA3FG++Barn-no1mesh.conf",
+    #     mask="bldg_masks",
+    #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_no1mesh.json"
+    # )
 
-    ## w/o Final Mask-Guided Trim
-    run_adaptivePS(
-        data_path=scene['data_path'],
-        exp_name=scene['exp_name'],
-        out_path="Ablation_tnt/Notrim",
-        conf_path="configs/DA3FG++Barn-notrim.conf",
-        mask="bldg_masks",
-        runtime_log_path="evaluation/runtime_logs_tnt/ablation_notrim.json"
-    )
+    # ## w/o Mask-Guided Densification & Pruning
+    # run_adaptivePS(
+    #     data_path=scene['data_path'],
+    #     exp_name=scene['exp_name'],
+    #     out_path="Ablation_tnt/Nosplit",
+    #     conf_path="configs/DA3FG++Barn-nosplit.conf",
+    #     mask="bldg_masks",
+    #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_nosplit.json"
+    # )
 
-    ## only Mesh post-processing
-    run_adaptivePS(
-        data_path=scene['data_path'],
-        exp_name=scene['exp_name'],
-        out_path="Ablation_tnt/Only1mesh",
-        conf_path="configs/DA3FG++Barn-only1mesh.conf",
-        mask="bldg_masks",
-        runtime_log_path="evaluation/runtime_logs_tnt/ablation_only1mesh.json"
-    )
+    # ## w/o Final Mask-Guided Trim
+    # run_adaptivePS(
+    #     data_path=scene['data_path'],
+    #     exp_name=scene['exp_name'],
+    #     out_path="Ablation_tnt/Notrim",
+    #     conf_path="configs/DA3FG++Barn-notrim.conf",
+    #     mask="bldg_masks",
+    #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_notrim.json"
+    # )
 
-    ## only Mask-Guided Densification & Pruning
-    run_adaptivePS(
-        data_path=scene['data_path'],
-        exp_name=scene['exp_name'],
-        out_path="Ablation_tnt/Onlysplit",
-        conf_path="configs/DA3FG++Barn-onlysplit.conf",
-        mask="bldg_masks",
-        runtime_log_path="evaluation/runtime_logs_tnt/ablation_onlysplit.json"
-    )
+    # ## only Mesh post-processing
+    # run_adaptivePS(
+    #     data_path=scene['data_path'],
+    #     exp_name=scene['exp_name'],
+    #     out_path="Ablation_tnt/Only1mesh",
+    #     conf_path="configs/DA3FG++Barn-only1mesh.conf",
+    #     mask="bldg_masks",
+    #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_only1mesh.json"
+    # )
 
-    ## only Final Mask-Guided Trim
-    run_adaptivePS(
-        data_path=scene['data_path'],
-        exp_name=scene['exp_name'],
-        out_path="Ablation_tnt/Onlytrim",
-        conf_path="configs/DA3FG++Barn-onlytrim.conf",
-        mask="bldg_masks",
-        runtime_log_path="evaluation/runtime_logs_tnt/ablation_onlytrim.json"
-    )
+    # ## only Mask-Guided Densification & Pruning
+    # run_adaptivePS(
+    #     data_path=scene['data_path'],
+    #     exp_name=scene['exp_name'],
+    #     out_path="Ablation_tnt/Onlysplit",
+    #     conf_path="configs/DA3FG++Barn-onlysplit.conf",
+    #     mask="bldg_masks",
+    #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_onlysplit.json"
+    # )
 
-    ## None of the 3
-    run_adaptivePS(
-        data_path=scene['data_path'],
-        exp_name=scene['exp_name'],
-        out_path="Ablation_tnt/Allnone",
-        conf_path="configs/DA3FG++Barn-none.conf",
-        mask="bldg_masks",
-        runtime_log_path="evaluation/runtime_logs_tnt/ablation_allnone.json"
-    )
+    # ## only Final Mask-Guided Trim
+    # run_adaptivePS(
+    #     data_path=scene['data_path'],
+    #     exp_name=scene['exp_name'],
+    #     out_path="Ablation_tnt/Onlytrim",
+    #     conf_path="configs/DA3FG++Barn-onlytrim.conf",
+    #     mask="bldg_masks",
+    #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_onlytrim.json"
+    # )
+
+    # ## None of the 3
+    # run_adaptivePS(
+    #     data_path=scene['data_path'],
+    #     exp_name=scene['exp_name'],
+    #     out_path="Ablation_tnt/Allnone",
+    #     conf_path="configs/DA3FG++Barn-none.conf",
+    #     mask="bldg_masks",
+    #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_allnone.json"
+    # )
