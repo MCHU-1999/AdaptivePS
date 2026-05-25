@@ -242,7 +242,7 @@ def render_all(results_dir: str, out_dir: str, indices=None):
     print(f"Output root: {out_dir}")
 
     for scene_dir in scene_dirs:
-        scene_folder = os.path.basename(scene_dir)   # e.g. "scan6_DA3FG"
+        scene_folder = os.path.basename(scene_dir)   # e.g. "scan6_APS"
         scan_name = scene_folder.split("_")[0]        # e.g. "scan6"
         colmap_dir = os.path.join(DATA_BASE_DIR, scan_name, "DA3_colmap")
 
@@ -275,7 +275,7 @@ def render_all(results_dir: str, out_dir: str, indices=None):
 # ==============================================================
 # MY_STORAGE      = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
 MY_STORAGE      = "/Users/mchu/Documents/TUD/Thesis"
-RESULTS_DIR     = "Ablation/Normalswap"         # root containing scanXX_DA3FG/ subdirs
+RESULTS_DIR     = "Ablation/Normalswap"         # root containing scanXX_APS/ subdirs
 # DATA_BASE_DIR   = f"{MY_STORAGE}/TNT_GOF/TrainingSet"  # scanXX/ subdirs live here
 DATA_BASE_DIR   = f"{MY_STORAGE}/DTU_ALL/Building"  # scanXX/ subdirs live here
 PLY_NAME        = "planar_mesh.ply"

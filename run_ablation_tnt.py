@@ -1,7 +1,7 @@
 import subprocess, sys, os
 from DA3.inference_colmap import da3_inference_all_scenes, da3_inference_a_scene
 from SAM3.inference import set_hf_token_from_txt, sam_inference_all_scenes, sam_inference_a_scene
-from run_DA3FG import run_adaptivePS
+from run_APS import run_adaptivePS
 from run_baseline import run_baseline
 
 
@@ -28,7 +28,7 @@ if __name__ == "__main__":
         data_path=scene['data_path'],
         exp_name=scene['exp_name'],
         out_path="Ablation_tnt/Normalswap",
-        conf_path="configs/DA3FG++Barn.conf",
+        conf_path="configs/APS++Barn.conf",
         mask="bldg_masks",
         runtime_log_path="evaluation/runtime_logs_tnt/ablation_normalswap.json"
     )
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     #     data_path=scene['data_path'],
     #     exp_name=scene['exp_name'],
     #     out_path="Ablation_tnt/No1mesh",
-    #     conf_path="configs/DA3FG++Barn-no1mesh.conf",
+    #     conf_path="configs/APS++Barn-no1mesh.conf",
     #     mask="bldg_masks",
     #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_no1mesh.json"
     # )
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     #     data_path=scene['data_path'],
     #     exp_name=scene['exp_name'],
     #     out_path="Ablation_tnt/Nosplit",
-    #     conf_path="configs/DA3FG++Barn-nosplit.conf",
+    #     conf_path="configs/APS++Barn-nosplit.conf",
     #     mask="bldg_masks",
     #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_nosplit.json"
     # )
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     #     data_path=scene['data_path'],
     #     exp_name=scene['exp_name'],
     #     out_path="Ablation_tnt/Notrim",
-    #     conf_path="configs/DA3FG++Barn-notrim.conf",
+    #     conf_path="configs/APS++Barn-notrim.conf",
     #     mask="bldg_masks",
     #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_notrim.json"
     # )
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     #     data_path=scene['data_path'],
     #     exp_name=scene['exp_name'],
     #     out_path="Ablation_tnt/Only1mesh",
-    #     conf_path="configs/DA3FG++Barn-only1mesh.conf",
+    #     conf_path="configs/APS++Barn-only1mesh.conf",
     #     mask="bldg_masks",
     #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_only1mesh.json"
     # )
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     #     data_path=scene['data_path'],
     #     exp_name=scene['exp_name'],
     #     out_path="Ablation_tnt/Onlysplit",
-    #     conf_path="configs/DA3FG++Barn-onlysplit.conf",
+    #     conf_path="configs/APS++Barn-onlysplit.conf",
     #     mask="bldg_masks",
     #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_onlysplit.json"
     # )
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     #     data_path=scene['data_path'],
     #     exp_name=scene['exp_name'],
     #     out_path="Ablation_tnt/Onlytrim",
-    #     conf_path="configs/DA3FG++Barn-onlytrim.conf",
+    #     conf_path="configs/APS++Barn-onlytrim.conf",
     #     mask="bldg_masks",
     #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_onlytrim.json"
     # )
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     #     data_path=scene['data_path'],
     #     exp_name=scene['exp_name'],
     #     out_path="Ablation_tnt/Allnone",
-    #     conf_path="configs/DA3FG++Barn-none.conf",
+    #     conf_path="configs/APS++Barn-none.conf",
     #     mask="bldg_masks",
     #     runtime_log_path="evaluation/runtime_logs_tnt/ablation_allnone.json"
     # )

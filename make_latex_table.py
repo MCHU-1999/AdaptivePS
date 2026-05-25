@@ -51,7 +51,7 @@ def main():
 
     def get_planes_for_scan(runs_base, scan_name):
         scan_path = os.path.join(base_dir, runs_base, scan_name)
-        # scan folders may have a _DA3FG suffix — pick the first matching dir
+        # scan folders may have a _APS suffix — pick the first matching dir
         if not os.path.isdir(scan_path):
             candidates = [d for d in os.listdir(os.path.join(base_dir, runs_base))
                           if d.startswith(scan_name)]
@@ -498,7 +498,7 @@ def main_ablation_tnt():
         runs_abs = os.path.join(BASE_DIR, runs_rel)
 
         # only one scene in TNT Barn so mean planes = planes of Barn
-        barn_runs_dir = os.path.join(runs_abs, "Barn_DA3FG")
+        barn_runs_dir = os.path.join(runs_abs, "Barn_APS")
         planes = None
         latest = find_latest_run(barn_runs_dir)
         if latest is not None:

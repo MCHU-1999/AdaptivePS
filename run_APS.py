@@ -13,7 +13,6 @@ from planarsplat.data_process.colmap_io import read_extrinsics_binary, read_extr
 from planarsplat.utils.misc_util import put_if_not_none
 from planarsplat.utils.timing_util import Timer, save_runtime_json
 from PIL import Image
-import cv2
 
 RUNTIME_LOG_PATH = "evaluation/runtime_logs/adaptiveps.json"
 
@@ -44,8 +43,8 @@ def get_depth_normal_paths(depth_prior_path: str, normal_prior_path: str, img_na
 
 def run_adaptivePS(
     data_path: str = 'path/to/colmap/data',
-    out_path: str = 'planarSplat_ExpRes/DA3FG',
-    conf_path: str = 'configs/DA3FG.conf',
+    out_path: str = 'planarSplat_ExpRes/APS',
+    conf_path: str = 'configs/APS.conf',
     use_precomputed_data: bool = False,
     mask: str = None,
     voxel_length: float = None,
@@ -68,8 +67,8 @@ def run_adaptivePS(
 
 def _run_adaptiveps(
     data_path: str = 'path/to/colmap/data',
-    out_path: str = 'planarSplat_ExpRes/DA3FG',
-    conf_path: str = 'configs/DA3FG.conf',
+    out_path: str = 'planarSplat_ExpRes/APS',
+    conf_path: str = 'configs/APS.conf',
     use_precomputed_data: bool = False,
     mask: str = None,
     voxel_length: float = None,
@@ -80,8 +79,7 @@ def _run_adaptiveps(
         raise ValueError(f'The input data path {data_path} does not exist.')
     else:
         depth_prior_path = os.path.join(data_path, "DA3_depth")
-        # normal_prior_path = os.path.join(data_path, "DA3_normal")
-        normal_prior_path = os.path.join(data_path, "mono_normal")
+        normal_prior_path = os.path.join(data_path, "DA3_normal")
 
     image_path = os.path.join(data_path, 'images')
     if not os.path.exists(image_path):
@@ -114,7 +112,7 @@ def _run_adaptiveps(
         raise NotImplementedError('Guess what, you have to have masks for this:)')
 
     os.makedirs(out_path, exist_ok=True)
-    precomputed_data_path = os.path.join(data_path, 'DA3FG_precomputed.pth')
+    precomputed_data_path = os.path.join(data_path, 'APS_precomputed.pth')
 
     if use_precomputed_data and os.path.exists(precomputed_data_path):
         data = torch.load(precomputed_data_path)
@@ -213,8 +211,8 @@ def _run_adaptiveps(
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument("-d", "--data_path", type=str, default='path/to/colmap/data', help='path of input colmap data')
-    parser.add_argument("-o", "--out_path", type=str, default='planarSplat_ExpRes/DA3FG', help='path of output dir')
-    parser.add_argument("--conf_path", type=str, default='configs/DA3FG.conf', help='path of configure file')
+    parser.add_argument("-o", "--out_path", type=str, default='planarSplat_ExpRes/APS', help='path of output dir')
+    parser.add_argument("--conf_path", type=str, default='configs/APS.conf', help='path of configure file')
     parser.add_argument('--use_precomputed_data', default=False, action="store_true", help='use processed data from input images')
     parser.add_argument('--mask', type=str, default=None, required=True, help='name of mask folder (None=not using mask)')
 

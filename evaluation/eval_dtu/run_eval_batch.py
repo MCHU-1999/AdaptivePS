@@ -18,7 +18,7 @@ import subprocess
 # ==============================================================
 # CONFIG
 # ==============================================================
-RESULTS_DIR = "Ablation/Allnone"                    # contains scanXX_DA3FG/ subdirs
+RESULTS_DIR = "Ablation/Allnone"                    # contains scanXX_APS/ subdirs
 VIS_OUT_DIR = "Ablation/Allnone/eval_results"       # where results go
 DATASET_DIR = "/Users/mchu/Documents/TUD/Thesis/DTU_GT"
 PLY_NAME    = "planar_mesh.ply"
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     for scene_folder in scene_folders:
         scene_dir = os.path.join(RESULTS_DIR, scene_folder)
 
-        # e.g. "scan24_DA3FG" → scan_name="scan24", scan_num=24
+        # e.g. "scan24_APS" → scan_name="scan24", scan_num=24
         scan_name = scene_folder.split("_")[0]
         try:
             scan_num = int(scan_name.replace("scan", ""))

@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 from tqdm import tqdm
 import open3d as o3d
+from PIL import Image
 
 from utils.model_util import get_K_Rt_from_P
 from utils.mesh_util import refuse_mesh
@@ -13,7 +14,7 @@ from utils.mesh_util import render_depths
 import math
 from loguru import logger
 from typing import NamedTuple, List, Dict
-import trimesh
+
 
 class CameraInfo(NamedTuple):
     uid: int
@@ -48,6 +49,7 @@ class ViewInfo(nn.Module):
         self.image_path = gt_info['image_path']
         self.depth_path = gt_info['depth_path']
         self.normal_path = gt_info['normal_path']
+        self.fg_mask_path = gt_info['fg_mask_path']
         self.index = gt_info['index']
         
         # Store image resolution and scene bounding sphere for processing
@@ -57,6 +59,7 @@ class ViewInfo(nn.Module):
         self._rgb_cache = None
         self._mono_depth_cache = None
         self._mono_normal_global_cache = None
+        self._fg_mask_cache = None
 
         # other info
         self.scale = 1.0
@@ -66,7 +69,6 @@ class ViewInfo(nn.Module):
     def _load_rgb(self):
         """Lazy load RGB image"""
         if self._rgb_cache is None:
-            from PIL import Image
             rgb = np.array(Image.open(self.image_path))
             rgb = torch.from_numpy(rgb).cuda().float() / 255.0  # h, w, 3
             self._rgb_cache = rgb.reshape(-1, 3)  # hw, 3
@@ -90,6 +92,15 @@ class ViewInfo(nn.Module):
             self._mono_normal_global_cache = normal_global
         return self._mono_normal_global_cache
     
+    def _load_fg_mask(self):
+        """Lazy load fg_mask"""
+        if self._fg_mask_cache is None:
+            fg_mask = np.array(Image.open(self.fg_mask_path))  # h, w, 1
+            fg_mask = (fg_mask > 0.5).astype(bool)
+            fg_mask = torch.from_numpy(fg_mask).cuda().bool()
+            self._fg_mask_cache = fg_mask.reshape(-1)  # hw
+        return self._fg_mask_cache
+    
     @property
     def rgb(self):
         return self._load_rgb()
@@ -107,18 +118,20 @@ class ViewInfo(nn.Module):
     @property
     def mono_normal_global(self):
         return self._load_normals()
+    
+    @property
+    def fg_mask(self):
+        return self._load_fg_mask()
 
 class SceneDatasetDemo:
     def __init__(
         self,
         data,
         img_res: List,
-        dataset_name: str = 'DA3',
+        dataset_name: str = 'APS',
         tag: str = 'example',
-        mesh_pre_align: bool = False,
         voxel_length: float=0.05,
         sdf_trunc: float=0.08,
-        depth_trunc: float = 5.0,
         **kwargs,
     ):
         self.dataset_name = dataset_name
@@ -130,6 +143,7 @@ class SceneDatasetDemo:
         image_paths = data['image_paths']
         depth_paths = data['depth_paths']
         normal_paths = data['normal_paths']
+        fg_mask_paths = data.get('fg_mask_paths', None)
         expdir = data['expdir']
         self.mono_mesh_dest = os.path.join(expdir, 'mono_mesh.ply')
         
@@ -138,6 +152,37 @@ class SceneDatasetDemo:
         # Validate that the number of paths matches the number of images
         assert len(depth_paths) == self.n_images, f"Depth paths count mismatch: {len(depth_paths)} vs {self.n_images}"
         assert len(normal_paths) == self.n_images, f"Normal paths count mismatch: {len(normal_paths)} vs {self.n_images}"
+
+        if fg_mask_paths is not None:
+            assert len(fg_mask_paths) == self.n_images, f"Mask paths count mismatch: {len(fg_mask_paths)} vs {self.n_images}"
+
+            all_depths = []
+            mono_depths = []
+            logger.info('Loading depth maps & masks for initial mesh generation...')
+            for depth_path, fg_mask_path in zip(depth_paths, fg_mask_paths):
+                depth = np.load(depth_path)
+                mono_depths.append(depth.reshape(img_res[0], img_res[1]).astype(np.float32))
+
+                fg_mask = np.array(Image.open(fg_mask_path))  # h, w, 1
+                fg_mask = (fg_mask > 0.5).astype(bool)
+                fg_mask = np.squeeze(fg_mask)
+
+                if np.all(fg_mask):
+                    # mask is all true, don't count
+                    continue
+                
+                valid_depth = depth[(depth > 0) & fg_mask]
+                p95 = np.percentile(valid_depth, 95)
+                
+                all_depths.append(p95)
+        else:
+            raise NotImplementedError("Well sorry you gotta have masks") 
+        
+        # Put depth_trunc into dataset class
+        if len(all_depths) > 0:
+            self.depth_trunc = np.mean(all_depths)
+        else:
+            self.depth_trunc = kwargs.get('depth_trunc', 10.0)
 
         # Load camera parameters (lightweight)
         self.intrinsics_all = [torch.from_numpy(intrinsic).cuda() for intrinsic in data['intrinsics']]
@@ -149,14 +194,10 @@ class SceneDatasetDemo:
         self.normal_paths = normal_paths
 
         # --- Efficient Mesh Generation ---
-        # Load depth maps as CPU numpy arrays — refuse_mesh uses Open3D (CPU-only),
-        # so there is no reason to push these to GPU VRAM.
-        print("Loading depth maps for mesh generation...")
-        mono_depths = [np.load(depth_path).reshape(img_res[0], img_res[1]).astype(np.float32)
-                       for depth_path in depth_paths]
-        print(f"Loaded {len(mono_depths)} depth maps for mesh generation")
+        logger.info(f'Loaded {len(mono_depths)} depth maps for mesh generation')
 
         # Generate and save the initial coarse mesh from monocular depth maps.
+        process_mesh = kwargs.get('process_mesh', True)
         mesh = refuse_mesh(
             mono_depths,
             [x.cpu().numpy() for x in self.poses_all],
@@ -165,51 +206,11 @@ class SceneDatasetDemo:
             img_res[1],
             voxel_length=voxel_length,
             sdf_trunc=sdf_trunc,
-            depth_trunc=depth_trunc
+            depth_trunc=self.depth_trunc,
+            process_mesh=process_mesh
         )
         o3d.io.write_triangle_mesh(self.mono_mesh_dest, mesh)
-
-        # --- Optional Pre-alignment of Depth Maps ---
-        if mesh_pre_align:
-            mesh = trimesh.load_mesh(self.mono_mesh_dest)
-            absolute_img_path = os.path.abspath(image_paths[0])
-            current_dir = os.path.dirname(absolute_img_path)
-            parent_dir = os.path.dirname(current_dir)
-            aligned_depth_dir = os.path.join(parent_dir, 'DA3_aligned_depth')
-
-            rendered_depths = render_depths(mesh, [pose.cpu().numpy() for pose in self.poses_all], [intrinsic.cpu().numpy()[:3, :3] for intrinsic in self.intrinsics_all], H=img_res[0], W=img_res[1])
-            rendered_depths = [torch.from_numpy(rd).reshape(-1).float() for rd in rendered_depths]
-            from utils.align import align_depth_scale
-            
-            # Apply alignment corrections and save the new depth maps to a separate directory.
-            print("Applying depth alignment corrections...")
-            os.makedirs(aligned_depth_dir, exist_ok=True)
-            aligned_depth_paths = []
-            
-            for i in tqdm(range(len(mono_depths)), desc='aligning depth...'):
-                md = mono_depths[i].cuda()
-                rd = rendered_depths[i].cuda()
-                weight = ((md.reshape(-1) - rd).abs() <= 0.5) & (rd > 0.05)
-                d_scale = align_depth_scale(md.reshape(1, -1), rd.reshape(1, -1), weight=weight.reshape(1, -1).float())
-                if d_scale > 0:
-                    md = md * d_scale.item()
-                    md = torch.clamp(md, 0, 300)
-                
-                # Save aligned depth map
-                img_name = os.path.basename(depth_paths[i]).rsplit('.', 1)[0]
-                aligned_depth_path = os.path.join(aligned_depth_dir, f'{img_name}.npy')
-                np.save(aligned_depth_path, md.cpu().numpy().astype(np.float32))
-                aligned_depth_paths.append(aligned_depth_path)
-            
-            # Update the dataset's depth paths to point to the newly aligned depth maps.
-            self.depth_paths = aligned_depth_paths
-            print(f"Saved {len(aligned_depth_paths)} aligned depth maps")
-        
-        # --- Memory Management ---
-        # Clear the temporarily loaded depth data to free up GPU memory.
-        del mono_depths
-        torch.cuda.empty_cache()
-        print("Cleared temporary depth data from memory")
+        del mono_depths  # free CPU RAM before training starts
 
         self.raster_cam_w2c_list, self.raster_cam_proj_list, self.raster_cam_fullproj_list, self.raster_cam_center_list, self.raster_cam_FovX_list, self.raster_cam_FovY_list, self.raster_img_center_list = self.get_raster_cameras(
             self.intrinsics_all, self.poses_all, img_res[0], img_res[1])
@@ -236,7 +237,8 @@ class SceneDatasetDemo:
                 "depth_path": self.depth_paths[idx],
                 "normal_path": self.normal_paths[idx],
                 "img_res": img_res,
-                'index': idx
+                'index': idx,
+                'fg_mask_path': fg_mask_paths[idx]
             }
             self.view_info_list.append(ViewInfo(cam_info, gt_info))
 
@@ -263,7 +265,8 @@ class SceneDatasetDemo:
         return intrinsics_all, poses_all
     
     def get_raster_cameras(self, intrinsics_all, poses_all, height, width):
-        zfar = 100.
+        # zfar = 100.
+        zfar = 200.
         znear = 0.01
         raster_cam_w2c_list = []
         raster_cam_proj_list = []

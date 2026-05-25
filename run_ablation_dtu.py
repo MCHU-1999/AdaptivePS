@@ -1,7 +1,7 @@
 import os
 from DA3.inference_dtu import da3_inference_all_scenes, da3_inference_a_scene
 from SAM3.inference import set_hf_token_from_txt, sam_inference_all_scenes, sam_inference_a_scene
-from run_DA3FG import run_adaptivePS
+from run_APS import run_adaptivePS
 from run_baseline import run_baseline
 
 
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     #         data_path=scene['data_path'],
     #         exp_name=scene['exp_name'],
     #         out_path="Ablation/Normalswap",
-    #         conf_path="configs/DA3FG++DTU.conf",
+    #         conf_path="configs/APS++DTU.conf",
     #         mask="bldg_masks",
     #         runtime_log_path="evaluation/runtime_logs/ablation_normalswap.json"
     #     )
@@ -40,7 +40,7 @@ if __name__ == "__main__":
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
             out_path="Ablation/Allnone",
-            conf_path="configs/DA3FG++DTU-none.conf",
+            conf_path="configs/APS++DTU-none.conf",
             mask="bldg_masks",
             runtime_log_path="evaluation/runtime_logs/ablation_allnone.json"
         )
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     #         data_path=scene['data_path'],
     #         exp_name=scene['exp_name'],
     #         out_path="Ablation/Only1mesh",
-    #         conf_path="configs/DA3FG++DTU-only1mesh.conf",
+    #         conf_path="configs/APS++DTU-only1mesh.conf",
     #         mask="bldg_masks",
     #         runtime_log_path="evaluation/runtime_logs/ablation_only1mesh.json"
     #     )
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     #         data_path=scene['data_path'],
     #         exp_name=scene['exp_name'],
     #         out_path="Ablation/Onlysplit",
-    #         conf_path="configs/DA3FG++DTU-onlysplit.conf",
+    #         conf_path="configs/APS++DTU-onlysplit.conf",
     #         mask="bldg_masks",
     #         runtime_log_path="evaluation/runtime_logs/ablation_onlysplit.json"
     #     )
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     #         data_path=scene['data_path'],
     #         exp_name=scene['exp_name'],
     #         out_path="Ablation/Onlytrim",
-    #         conf_path="configs/DA3FG++DTU-onlytrim.conf",
+    #         conf_path="configs/APS++DTU-onlytrim.conf",
     #         mask="bldg_masks",
     #         runtime_log_path="evaluation/runtime_logs/ablation_onlytrim.json"
     #     )

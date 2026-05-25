@@ -1,7 +1,7 @@
 import os
 from DA3.inference_dtu import da3_inference_all_scenes, da3_inference_a_scene
 from SAM3.inference import set_hf_token_from_txt, sam_inference_all_scenes, sam_inference_a_scene
-from run_DA3FG import run_adaptivePS
+from run_APS import run_adaptivePS
 from run_baseline import run_baseline
 
 
@@ -38,7 +38,7 @@ if __name__ == "__main__":
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
             out_path="AdaptivePS/DTU-Building",
-            conf_path="configs/DA3FG++DTU.conf",
+            conf_path="configs/APS++DTU.conf",
             mask="bldg_masks"
         )
 
