@@ -159,42 +159,28 @@ def run_evaluation(dataset_dir, traj_path, ply_path, out_dir):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--dataset-dir",
-        type=str,
-        required=True,
-        help="path to a dataset/scene directory containing X.json, X.ply, ...",
-    )
-    parser.add_argument(
-        "--traj-path",
-        type=str,
-        required=True,
-        help=
-        "path to trajectory file. See `convert_to_logfile.py` to create this file.",
-    )
-    parser.add_argument(
-        "--ply-path",
-        type=str,
-        required=True,
-        help="path to reconstruction ply file",
-    )
-    parser.add_argument(
-        "--out-dir",
-        type=str,
-        default="",
-        help=
-        "output directory, default: an evaluation directory is created in the directory of the ply file",
-    )
-    args = parser.parse_args()
 
-    if args.out_dir.strip() == "":
-        args.out_dir = os.path.join(os.path.dirname(args.ply_path),
-                                    "evaluation")
+    BASE = "/Users/mchu/Documents/TUD/Thesis"
+    RUNS = [
+        "Allnone",
+        "No1mesh",
+        "Normalswap",
+        "Nosplit",
+        "Notrim",
+        "Only1mesh",
+        "Onlysplit",
+        "Onlytrim"
+    ]
 
-    run_evaluation(
-        dataset_dir=args.dataset_dir,
-        traj_path=args.traj_path,
-        ply_path=args.ply_path,
-        out_dir=args.out_dir,
-    )
+    DATASET_DIR = f"{BASE}/TNT_GOF/TrainingSet/Barn"
+    TRAJ_PATH = f"{BASE}/TNT_GOF/TrainingSet/Barn/DA3_colmap/DA3.log"
+    PLY_PATHS = [f"{BASE}/PlanarSplatting/Ablation_tnt/{dir}/planar_mesh.ply" for dir in RUNS]
+    OUT_DIRS = [f"{BASE}/PlanarSplatting/evaluation/eval_tnt/ablation/{dir}" for dir in RUNS]
+
+    for ply_path, out_dir in zip(PLY_PATHS, OUT_DIRS):
+        run_evaluation(
+            dataset_dir=DATASET_DIR,
+            traj_path=TRAJ_PATH,
+            ply_path=ply_path,
+            out_dir=out_dir,
+        )

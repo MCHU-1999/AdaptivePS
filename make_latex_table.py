@@ -413,5 +413,159 @@ def main_ablation():
     print("\\end{table}")
 
 
+def main_ablation_tnt():
+    """
+    Generates the LaTeX ablation table comparing all ablation variants vs. the full model on TnT Barn.
+    """
+    import re
+
+    BASE_DIR = '/Users/mchu/Documents/TUD/Thesis/PlanarSplatting'
+
+    VARIANTS = [
+        ("Replace normal source (to Metric3Dv2 \\citep{hu_metric3dv2_2024})", "evaluation/eval_tnt/ablation/Normalswap", "Ablation_tnt/Normalswap", "normal"),
+        ("w/o Mesh post-processing", "evaluation/eval_tnt/ablation/No1mesh", "Ablation_tnt/No1mesh", "loo_first"),
+        ("w/o Mask-Guided Densification \\& Pruning", "evaluation/eval_tnt/ablation/Nosplit", "Ablation_tnt/Nosplit", "loo"),
+        ("w/o Final Mask-Guided Trim", "evaluation/eval_tnt/ablation/Notrim", "Ablation_tnt/Notrim", "loo"),
+        ("Only Mesh post-processing", "evaluation/eval_tnt/ablation/Only1mesh", "Ablation_tnt/Only1mesh", "iso_first"),
+        ("Only Mask-Guided Densification \\& Pruning", "evaluation/eval_tnt/ablation/Onlysplit", "Ablation_tnt/Onlysplit", "iso"),
+        ("Only Final Mask-Guided Trim", "evaluation/eval_tnt/ablation/Onlytrim", "Ablation_tnt/Onlytrim", "iso"),
+        ("All 3 modules disabled", "evaluation/eval_tnt/ablation/Allnone", "Ablation_tnt/Allnone", "all_out"),
+        ("Full model", "evaluation/eval_tnt/APS", "AdaptivePS/TnT", "full"),
+    ]
+
+    def find_latest_run(scene_dir):
+        try:
+            entries = sorted([e for e in os.listdir(scene_dir)
+                              if os.path.isdir(os.path.join(scene_dir, e))])
+            return os.path.join(scene_dir, entries[-1]) if entries else None
+        except Exception:
+            return None
+
+    def get_final_planar_instances(log_file):
+        pattern = re.compile(r"number of planar instances = (\d+)")
+        final = None
+        try:
+            with open(log_file, 'r') as f:
+                for line in f:
+                    m = pattern.search(line)
+                    if m:
+                        final = int(m.group(1))
+        except Exception:
+            pass
+        return final
+
+    def get_tnt_metrics(eval_dir_abs):
+        chamfer_path = os.path.join(eval_dir_abs, "Barn.chamfer.txt")
+        prf_path = os.path.join(eval_dir_abs, "Barn.prf_tau_plotstr.txt")
+        
+        overall = None
+        f1 = None
+        
+        if os.path.exists(chamfer_path):
+            try:
+                data = np.loadtxt(chamfer_path)
+                overall = data[2] * 100.0  # meters to cm
+            except Exception:
+                pass
+                
+        if os.path.exists(prf_path):
+            try:
+                data = np.loadtxt(prf_path)
+                f1 = data[2]
+            except Exception:
+                pass
+                
+        return overall, f1
+
+    # --- print table ---
+    print("\\begin{table}[htbp]")
+    print("\\centering")
+    print("\\footnotesize")
+    print("\\caption{Ablation study on \\ac{TnT} \\textit{Barn} (taking mean values). \"Red\", \"Orange\" and \"Yellow\" denote the top 1-3 results.}")
+    print("\\label{tab:ablation_tnt}")
+    print("\\begin{tabular}{l ccc}")
+    print("\\toprule")
+    print("Model Setting & Planes no. $\\downarrow$ & CD (cm)$\\downarrow$ & F1-score @ 1cm $\\uparrow$ \\\\")
+    print("\\midrule")
+
+    rows_data = []
+    planes_vals = []
+    cd_vals = []
+    f1_vals = []
+
+    for i, (label, eval_rel, runs_rel, group) in enumerate(VARIANTS):
+        eval_abs = os.path.join(BASE_DIR, eval_rel)
+        runs_abs = os.path.join(BASE_DIR, runs_rel)
+
+        # only one scene in TNT Barn so mean planes = planes of Barn
+        barn_runs_dir = os.path.join(runs_abs, "Barn_DA3FG")
+        planes = None
+        latest = find_latest_run(barn_runs_dir)
+        if latest is not None:
+            log = os.path.join(latest, 'train.log')
+            planes = get_final_planar_instances(log)
+
+        cd, f1 = get_tnt_metrics(eval_abs)
+
+        rows_data.append({
+            'label': label,
+            'planes': planes,
+            'cd': cd,
+            'f1': f1,
+            'group': group
+        })
+
+        if planes is not None: planes_vals.append(planes)
+        if cd is not None: cd_vals.append(cd)
+        if f1 is not None: f1_vals.append(f1)
+
+    planes_ranked = sorted(list(set(planes_vals)))
+    cd_ranked = sorted(list(set(cd_vals)))
+    f1_ranked = sorted(list(set(f1_vals)), reverse=True)
+
+    def get_color_str(val, ranked_list, fmt):
+        if val is None:
+            return "-"
+        str_val = f"{val:{fmt}}"
+        try:
+            rank = ranked_list.index(val)
+            if rank == 0:
+                return f"\\cellcolor{{red!25}}{str_val}"
+            elif rank == 1:
+                return f"\\cellcolor{{orange!25}}{str_val}"
+            elif rank == 2:
+                return f"\\cellcolor{{yellow!25}}{str_val}"
+            else:
+                return str_val
+        except ValueError:
+            return str_val
+
+    for i, row in enumerate(rows_data):
+        planes_str = f"{row['planes']:.0f}" if row['planes'] is not None else "-"
+        cd_str     = get_color_str(row['cd'], cd_ranked, ".2f")
+        f1_str     = get_color_str(row['f1'], f1_ranked, ".4f")
+
+        if row['group'] == "loo_first":
+            print("\\midrule")
+            print("\\textit{Leave-one-out:} & & & \\\\")
+        elif row['group'] == "iso_first":
+            print("\\midrule")
+            print("\\textit{Isolation:} & & & \\\\")
+        elif row['group'] == "all_out":
+            print("\\midrule")
+            print("\\textit{Leave-all-out:} & & & \\\\")
+        elif row['group'] == "full":
+            print("\\midrule")
+
+        print(f"{row['label']} & {planes_str} & {cd_str} & {f1_str} \\\\")
+
+    print("\\bottomrule")
+    print("\\end{tabular}")
+    print("\\end{table}")
+
+
 if __name__ == '__main__':
-    main_ablation()
+    
+    # main_ablation()
+
+    main_ablation_tnt()

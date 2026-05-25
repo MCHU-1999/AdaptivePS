@@ -71,7 +71,7 @@ def main(base_dir):
 MY_STORAGE      = "/Users/mchu/Documents/TUD/Thesis"
 # RESULTS_DIR     = "AdaptivePS/DTU-Building"
 # RESULTS_DIR     = "Vanilla/DTU-Building"
-RESULTS_DIR     = "Vanilla/TnT"
+RESULTS_DIR     = "Ablation_tnt"
 # ==============================================================
 
 if __name__ == "__main__":

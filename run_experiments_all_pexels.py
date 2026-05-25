@@ -2,7 +2,7 @@ import subprocess, sys, os
 from DA3.inference import da3_inference_all_scenes, da3_inference_a_scene
 from SAM3.inference import set_hf_token_from_txt, sam_inference_all_scenes, sam_inference_a_scene
 from run_DA3FG import run_adaptivePS
-from run_vanilla import run_vanilla
+from run_baseline import run_baseline
 
 # =================================================================
 # SUMMARY OF DEPTHS PER SCENE (took 50 samples only)
@@ -134,7 +134,7 @@ if __name__ == "__main__":
             mask="bldg_masks"
         )
     for scene in SCENES:
-        run_vanilla(
+        run_baseline(
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
             out_path="Vanilla/Pexels",

@@ -275,14 +275,17 @@ def render_all(results_dir: str, out_dir: str, indices=None):
 # ==============================================================
 # MY_STORAGE      = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
 MY_STORAGE      = "/Users/mchu/Documents/TUD/Thesis"
-RESULTS_DIR     = "AdaptivePS/TnT"         # root containing scanXX_DA3FG/ subdirs
-DATA_BASE_DIR   = f"{MY_STORAGE}/TNT_GOF/TrainingSet"  # scanXX/ subdirs live here
+RESULTS_DIR     = "Ablation/Normalswap"         # root containing scanXX_DA3FG/ subdirs
+# DATA_BASE_DIR   = f"{MY_STORAGE}/TNT_GOF/TrainingSet"  # scanXX/ subdirs live here
+DATA_BASE_DIR   = f"{MY_STORAGE}/DTU_ALL/Building"  # scanXX/ subdirs live here
 PLY_NAME        = "planar_mesh.ply"
-OUTPUT_DIR      = "AdaptivePS"                         # rendered_rgb/{scan} and rendered_dn/{scan} go here
+OUTPUT_DIR      = "Ablation"                         # rendered_rgb/{scan} and rendered_dn/{scan} go here
 # ==============================================================
 
 
 if __name__ == "__main__":
     # INDICES = [0, 25, 45, 75, 100, 125, 150]
-    INDICES = [i for i in range(0, 400, 25)]
-    render_all(RESULTS_DIR, out_dir=OUTPUT_DIR, indices=INDICES)
+    # INDICES = [i for i in range(0, 400, 25)]
+    # INDICES = [0]
+    # render_all(RESULTS_DIR, out_dir=OUTPUT_DIR, indices=INDICES)
+    render_all(RESULTS_DIR, out_dir=OUTPUT_DIR)

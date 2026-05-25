@@ -75,10 +75,10 @@ def get_scales(key, cameras, images, points3d_ordered, invmonodepthmap):
     return {"image_name": image_meta.name[:-n_remove], "scale": scale, "offset": offset}
 
 
-def run_vanilla(data_path, out_path, conf_path, use_precomputed_data=False, mask=None, mesh_pre_align=False, voxel_length=None, depth_trunc=None, max_depth=None, exp_name=None):
+def run_baseline(data_path, out_path, conf_path, use_precomputed_data=False, mask=None, mesh_pre_align=False, voxel_length=None, depth_trunc=None, max_depth=None, exp_name=None):
     scene_name = exp_name or os.path.basename(data_path.rstrip('/'))
     with Timer() as t_total:
-        _run_vanilla(
+        _run_baseline(
             data_path=data_path, out_path=out_path, conf_path=conf_path,
             use_precomputed_data=use_precomputed_data, mask=mask,
             mesh_pre_align=mesh_pre_align, voxel_length=voxel_length,
@@ -88,7 +88,7 @@ def run_vanilla(data_path, out_path, conf_path, use_precomputed_data=False, mask
     save_runtime_json(RUNTIME_LOG_PATH, {scene_name: {"total_s": round(t_total.elapsed, 2)}})
 
 
-def _run_vanilla(data_path, out_path, conf_path, use_precomputed_data=False, mask=None, mesh_pre_align=False, voxel_length=None, depth_trunc=None, max_depth=None, exp_name=None, scene_name=None):
+def _run_baseline(data_path, out_path, conf_path, use_precomputed_data=False, mask=None, mesh_pre_align=False, voxel_length=None, depth_trunc=None, max_depth=None, exp_name=None, scene_name=None):
     USE_MASK = False
     if mask is not None:
         mask_folder_name = mask
@@ -281,7 +281,7 @@ if __name__ == '__main__':
     parser.add_argument("--exp_name", type=str, default=None, help='experiment name for output folder')
     args = parser.parse_args()
 
-    run_vanilla(
+    run_baseline(
         data_path=args.data_path,
         out_path=args.out_path,
         conf_path=args.conf_path,
