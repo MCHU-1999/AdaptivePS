@@ -22,6 +22,6 @@ TSDF_test/
 my_experiments/
 A2_progress/
 A3_progress/
-Vanilla/
+Baseline/
 AdaptivePS/
 Ablation*/

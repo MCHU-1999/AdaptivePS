@@ -42,11 +42,11 @@ if __name__ == "__main__":
             mask="bldg_masks"
         )
 
-    ## Vanilla PlanarSplatting
+    ## Baseline PlanarSplatting
     for scene in BD_SCENES:
         run_baseline(
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
-            out_path="Vanilla/DTU-Building",
-            conf_path="configs/vanilla-DTU.conf",
+            out_path="Baseline/DTU-Building",
+            conf_path="configs/baseline-DTU.conf",
         )

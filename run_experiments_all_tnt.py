@@ -48,8 +48,8 @@ if __name__ == "__main__":
         run_baseline(
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
-            out_path="Vanilla/TnT",
-            conf_path="configs/vanilla-Barn.conf",
+            out_path="Baseline/TnT",
+            conf_path="configs/baseline-Barn.conf",
             depth_trunc=scene['depth_trunc'],
         )
             

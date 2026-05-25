@@ -70,7 +70,7 @@ def main(base_dir):
 # MY_STORAGE      = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
 MY_STORAGE      = "/Users/mchu/Documents/TUD/Thesis"
 # RESULTS_DIR     = "AdaptivePS/DTU-Building"
-# RESULTS_DIR     = "Vanilla/DTU-Building"
+# RESULTS_DIR     = "Baseline/DTU-Building"
 RESULTS_DIR     = "Ablation_tnt"
 # ==============================================================
 

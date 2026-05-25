@@ -15,7 +15,7 @@ from planarsplat.utils.timing_util import Timer, save_runtime_json
 from PIL import Image
 import cv2
 
-RUNTIME_LOG_PATH = "evaluation/runtime_logs/vanilla.json"
+RUNTIME_LOG_PATH = "evaluation/runtime_logs/baseline.json"
 
 
 # modified from https://github.com/graphdeco-inria/gaussian-splatting/blob/main/utils/make_depth_scale.py
@@ -126,7 +126,7 @@ def _run_baseline(data_path, out_path, conf_path, use_precomputed_data=False, ma
     os.makedirs(scaled_depth_dir, exist_ok=True)
 
     os.makedirs(out_path, exist_ok=True)
-    precomputed_data_path = os.path.join(data_path, 'vanilla_precomputed.pth')
+    precomputed_data_path = os.path.join(data_path, 'baseline_precomputed.pth')
 
     if use_precomputed_data and os.path.exists(precomputed_data_path):
         data = torch.load(precomputed_data_path)
@@ -269,8 +269,8 @@ def _run_baseline(data_path, out_path, conf_path, use_precomputed_data=False, ma
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument("-d", "--data_path", type=str, default='path/to/colmap/data', help='path of input colmap data')
-    parser.add_argument("-o", "--out_path", type=str, default='planarSplat_ExpRes/vanilla', help='path of output dir')
-    parser.add_argument("--conf_path", type=str, default='configs/vanilla.conf', help='path of configure file')
+    parser.add_argument("-o", "--out_path", type=str, default='planarSplat_ExpRes/baseline', help='path of output dir')
+    parser.add_argument("--conf_path", type=str, default='configs/baseline.conf', help='path of configure file')
     parser.add_argument('--use_precomputed_data', default=False, action="store_true", help='use processed data from input images')
     parser.add_argument('--mask', type=str, default=None, help='name of mask folder (None=not using mask)')
 

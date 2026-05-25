@@ -137,8 +137,8 @@ if __name__ == "__main__":
         run_baseline(
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
-            out_path="Vanilla/Pexels",
-            conf_path="configs/vanilla-big.conf",
+            out_path="Baseline/Pexels",
+            conf_path="configs/baseline-big.conf",
             depth_trunc=scene['depth_trunc'],
         )
             

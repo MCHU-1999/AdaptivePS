@@ -22,10 +22,10 @@ def load_results(base_dir):
 def main():
     import re
     base_dir = '/Users/mchu/Documents/TUD/Thesis/PlanarSplatting'
-    vanilla_dir  = os.path.join(base_dir, 'Vanilla/eval_results')
+    baseline_dir  = os.path.join(base_dir, 'Baseline/eval_results')
     adaptive_dir = os.path.join(base_dir, 'AdaptivePS/eval_results')
 
-    vanilla_results  = load_results(vanilla_dir)
+    baseline_results  = load_results(baseline_dir)
     adaptive_results = load_results(adaptive_dir)
 
     # Load runtimes
@@ -35,7 +35,7 @@ def main():
             with open(path) as f:
                 return json.load(f)
         return {}
-    vanilla_rt  = _load_json(os.path.join(runtime_dir, 'vanilla.json'))
+    baseline_rt  = _load_json(os.path.join(runtime_dir, 'baseline.json'))
     adaptive_rt = _load_json(os.path.join(runtime_dir, 'adaptiveps.json'))
     da3_rt      = _load_json(os.path.join(runtime_dir, 'da3.json'))
     sam_rt      = _load_json(os.path.join(runtime_dir, 'sam.json'))
@@ -75,11 +75,11 @@ def main():
         return final
 
     # Common scans, sorted numerically
-    scans = set(vanilla_results.keys()).intersection(set(adaptive_results.keys()))
+    scans = set(baseline_results.keys()).intersection(set(adaptive_results.keys()))
     scans = sorted(list(scans), key=lambda x: int(x.replace('scan', '')))
 
     metrics = ['planes', 'overall', 'fscore@2.0mm', 'runtime']
-    vanilla_means  = {m: [] for m in metrics}
+    baseline_means  = {m: [] for m in metrics}
     adaptive_means = {m: [] for m in metrics}
 
     def format_pair(val_b, val_a, is_lower_better=True, fmt=".2f", suffix=""):
@@ -115,15 +115,15 @@ def main():
     print("\\midrule")
 
     for scan in scans:
-        v_res = vanilla_results.get(scan, {})
+        v_res = baseline_results.get(scan, {})
         a_res = adaptive_results.get(scan, {})
 
         # Planes
-        v_planes = get_planes_for_scan('Vanilla/DTU-Building', scan)
+        v_planes = get_planes_for_scan('Baseline/DTU-Building', scan)
         a_planes = get_planes_for_scan('AdaptivePS/DTU-Building', scan)
 
         # Runtime
-        v_rt_data = vanilla_rt.get(scan, {})
+        v_rt_data = baseline_rt.get(scan, {})
         v_rt_val  = v_rt_data.get('total_s', None) if isinstance(v_rt_data, dict) else v_rt_data
         a_rt_data = adaptive_rt.get(scan, None)
         a_rt_val  = a_rt_data.get('total_s', None) if isinstance(a_rt_data, dict) else a_rt_data
@@ -139,13 +139,13 @@ def main():
         val_fs_a = a_res.get('fscore@2.0mm', None)
 
         # Accumulate for means
-        for lst, val in [(vanilla_means['planes'], v_planes),
+        for lst, val in [(baseline_means['planes'], v_planes),
                          (adaptive_means['planes'], a_planes),
-                         (vanilla_means['overall'], val_cd_v),
+                         (baseline_means['overall'], val_cd_v),
                          (adaptive_means['overall'], val_cd_a),
-                         (vanilla_means['fscore@2.0mm'], val_fs_v),
+                         (baseline_means['fscore@2.0mm'], val_fs_v),
                          (adaptive_means['fscore@2.0mm'], val_fs_a),
-                         (vanilla_means['runtime'], baseline_rt),
+                         (baseline_means['runtime'], baseline_rt),
                          (adaptive_means['runtime'], adaptive_rt_total)]:
             if val is not None:
                 lst.append(val)
@@ -167,13 +167,13 @@ def main():
 
     def _mean(lst): return np.mean(lst) if lst else None
 
-    v_mean_pl = _mean(vanilla_means['planes'])
+    v_mean_pl = _mean(baseline_means['planes'])
     a_mean_pl = _mean(adaptive_means['planes'])
     m_pl_b = f"{v_mean_pl:.1f}" if v_mean_pl is not None else "-"
     m_pl_a = f"{a_mean_pl:.1f}" if a_mean_pl is not None else "-"
-    m_cd_b, m_cd_a = format_pair(_mean(vanilla_means['overall']),      _mean(adaptive_means['overall']),      is_lower_better=True)
-    m_fs_b, m_fs_a = format_pair(_mean(vanilla_means['fscore@2.0mm']), _mean(adaptive_means['fscore@2.0mm']), is_lower_better=False)
-    m_rt_b, m_rt_a = format_pair(_mean(vanilla_means['runtime']),      _mean(adaptive_means['runtime']),      is_lower_better=True,  fmt=".0f", suffix="s")
+    m_cd_b, m_cd_a = format_pair(_mean(baseline_means['overall']),      _mean(adaptive_means['overall']),      is_lower_better=True)
+    m_fs_b, m_fs_a = format_pair(_mean(baseline_means['fscore@2.0mm']), _mean(adaptive_means['fscore@2.0mm']), is_lower_better=False)
+    m_rt_b, m_rt_a = format_pair(_mean(baseline_means['runtime']),      _mean(adaptive_means['runtime']),      is_lower_better=True,  fmt=".0f", suffix="s")
 
     mean_row = ["Mean", m_pl_b, m_pl_a, m_cd_b, m_cd_a, m_fs_b, m_fs_a, m_rt_b, m_rt_a]
     print(" & ".join(mean_row) + " \\\\")
@@ -185,18 +185,18 @@ def main():
 def main_chamfer_detailed():
     """Table comparing all 3 Chamfer components: Acc. (mean_d2s), Comp. (mean_s2d), Overall."""
     base_dir = '/Users/mchu/Documents/TUD/Thesis/PlanarSplatting'
-    vanilla_dir = os.path.join(base_dir, 'Vanilla/eval_results')
+    baseline_dir = os.path.join(base_dir, 'Baseline/eval_results')
     adaptive_dir = os.path.join(base_dir, 'AdaptivePS/eval_results')
 
-    vanilla_results = load_results(vanilla_dir)
+    baseline_results = load_results(baseline_dir)
     adaptive_results = load_results(adaptive_dir)
 
-    scans = set(vanilla_results.keys()).intersection(set(adaptive_results.keys()))
+    scans = set(baseline_results.keys()).intersection(set(adaptive_results.keys()))
     scans = sorted(list(scans), key=lambda x: int(x.replace('scan', '')))
 
     cd_metrics = ['mean_d2s', 'mean_s2d', 'overall']
 
-    vanilla_means = {m: [] for m in cd_metrics}
+    baseline_means = {m: [] for m in cd_metrics}
     adaptive_means = {m: [] for m in cd_metrics}
 
     def format_pair(val_b, val_a, is_lower_better=True):
@@ -231,14 +231,14 @@ def main_chamfer_detailed():
     print("\\midrule")
 
     for scan in scans:
-        v_res = vanilla_results.get(scan, {})
+        v_res = baseline_results.get(scan, {})
         a_res = adaptive_results.get(scan, {})
 
         vals = {}
         for m in cd_metrics:
             vals[f'v_{m}'] = v_res.get(m, None)
             vals[f'a_{m}'] = a_res.get(m, None)
-            if vals[f'v_{m}'] is not None: vanilla_means[m].append(vals[f'v_{m}'])
+            if vals[f'v_{m}'] is not None: baseline_means[m].append(vals[f'v_{m}'])
             if vals[f'a_{m}'] is not None: adaptive_means[m].append(vals[f'a_{m}'])
 
         s_d2s_b, s_d2s_a = format_pair(vals['v_mean_d2s'], vals['a_mean_d2s'])
@@ -253,9 +253,9 @@ def main_chamfer_detailed():
     def mean_or_none(lst):
         return np.mean(lst) if lst else None
 
-    m_d2s_b, m_d2s_a = format_pair(mean_or_none(vanilla_means['mean_d2s']), mean_or_none(adaptive_means['mean_d2s']))
-    m_s2d_b, m_s2d_a = format_pair(mean_or_none(vanilla_means['mean_s2d']), mean_or_none(adaptive_means['mean_s2d']))
-    m_ov_b,  m_ov_a  = format_pair(mean_or_none(vanilla_means['overall']),  mean_or_none(adaptive_means['overall']))
+    m_d2s_b, m_d2s_a = format_pair(mean_or_none(baseline_means['mean_d2s']), mean_or_none(adaptive_means['mean_d2s']))
+    m_s2d_b, m_s2d_a = format_pair(mean_or_none(baseline_means['mean_s2d']), mean_or_none(adaptive_means['mean_s2d']))
+    m_ov_b,  m_ov_a  = format_pair(mean_or_none(baseline_means['overall']),  mean_or_none(adaptive_means['overall']))
 
     mean_row = ["Mean", m_d2s_b, m_d2s_a, m_s2d_b, m_s2d_a, m_ov_b, m_ov_a]
     print(" & ".join(mean_row) + " \\\\")
