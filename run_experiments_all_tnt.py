@@ -29,27 +29,27 @@ if __name__ == "__main__":
     token_path = os.path.join(os.path.dirname(__file__), "SAM3", "hf_token.txt")
     set_hf_token_from_txt(token_path)
 
-    ## SAM3
-    sam_inference_all_scenes(SCENES)
+    # ## SAM3
+    # sam_inference_all_scenes(SCENES)
 
     ## DA3
     da3_inference_all_scenes(SCENES)
 
-    # PlanarSplatting
-    for scene in SCENES:
-        run_adaptivePS(
-            data_path=scene['data_path'],
-            exp_name=scene['exp_name'],
-            out_path="AdaptivePS/TnT",
-            conf_path="configs/APS++Barn.conf",
-            mask="bldg_masks"
-        )
-    for scene in SCENES:
-        run_baseline(
-            data_path=scene['data_path'],
-            exp_name=scene['exp_name'],
-            out_path="Baseline/TnT",
-            conf_path="configs/baseline-Barn.conf",
-            depth_trunc=scene['depth_trunc'],
-        )
+    # ## PlanarSplatting
+    # for scene in SCENES:
+    #     run_adaptivePS(
+    #         data_path=scene['data_path'],
+    #         exp_name=scene['exp_name'],
+    #         out_path="AdaptivePS/TnT",
+    #         conf_path="configs/APS++Barn.conf",
+    #         mask="bldg_masks"
+    #     )
+    # for scene in SCENES:
+    #     run_baseline(
+    #         data_path=scene['data_path'],
+    #         exp_name=scene['exp_name'],
+    #         out_path="Baseline/TnT",
+    #         conf_path="configs/baseline-Barn.conf",
+    #         depth_trunc=scene['depth_trunc'],
+    #     )
             
