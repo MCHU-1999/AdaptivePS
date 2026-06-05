@@ -175,7 +175,7 @@ def da3_inference_all_scenes(scenes):
                 },
                 show_cameras=False,
                 conf_thresh_percentile=40,
-                # num_max_points=100_000,
+                num_max_points=100_000_000,
             )
 
         save_runtime_json(RUNTIME_LOG_PATH, {scene_name: round(t.elapsed, 2)})
