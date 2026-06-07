@@ -13,7 +13,7 @@ from .net_wrapper import PlanarRecWrapper
 from utils.misc_util import setup_logging, get_train_param, save_config_files, prepare_folders, get_class
 from utils.trainer_util import resume_model, calculate_plane_depth, plot_plane_img, save_checkpoints
 from utils.mesh_util import get_coarse_mesh, remove_mesh_attribute
-from utils.merge_util_newnew import merge_plane
+from utils.merge_util_newnew import merge_plane, filter_plane2mesh
 from utils.loss_util import normal_loss, metric_depth_loss
 from utils.model_util import split_planes_xy_via_mask
 
@@ -212,29 +212,12 @@ class PlanarSplatTrainRunner():
             output_dir = self.expdir
         self.net.eval()
         save_root = output_dir
-        # os.makedirs(save_root, exist_ok=True)
 
-        ## prune planes whose maximum radii lower than the threshold
+        ## prune planes whose radii lower than the threshold
         self.net.prune_small_plane(min_radii=self.voxel_length)
         logger.info("number of 3D planar primitives = %d"%(self.net.planarSplat.get_plane_num()))
 
-        ref_mesh = get_coarse_mesh(
-            self.net, 
-            self.dataset.view_info_list.copy(), 
-            self.H, 
-            self.W, 
-            voxel_length=self.voxel_length, 
-            sdf_trunc=self.sdf_trunc,
-            depth_trunc=self.depth_trunc,
-            process_mesh=self.process_mesh
-        )
-        if debug_output:
-            save_path = os.path.join(save_root, f"ref_mesh.ply")
-            logger.info(f'saving reference mesh to {save_path} ---DEBUG')
-            o3d.io.write_triangle_mesh(
-                        save_path, 
-                        ref_mesh)
-        
+        ## Merge planes        
         merge_config_coarse = self.conf.get_config('merge_coarse', default=None)
         merge_config_fine = self.conf.get_config('merge_fine', default=None)
         if merge_config_coarse is not None:
@@ -262,6 +245,12 @@ class PlanarSplatTrainRunner():
                 )
         else:
             raise ValueError("No merge configuration found!")
+
+        ## prune merged planes if too far away from ref_mesh
+        # Use mono-mesh as reference mesh (orthogonal distance per plane, default 0.15 m)
+        planarSplat_eval_mesh, plane_ins_id_new = filter_plane2mesh(
+            planarSplat_eval_mesh, plane_ins_id_new, self.dataset.mono_mesh_dest
+        )
 
         if save_mesh_for_KSR:
             save_path = os.path.join(save_root, f"planar_mesh_for_KSR.ply")

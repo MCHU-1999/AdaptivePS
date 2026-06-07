@@ -13,6 +13,100 @@ import itertools
 from utils.model_util import quat_to_rot
 from utils.plot_util import plot_rectangle_planes
 
+
+def filter_plane2mesh(planarSplat_eval_mesh, plane_ins_id_new, ref_mesh_path, dist_thresh=0.15):
+    """
+    Remove planar segments that are floating too far from the reference mesh.
+
+    Args:
+        planarSplat_eval_mesh : trimesh.Trimesh with vertex_attributes['pts_ins_assignment']
+        plane_ins_id_new      : (N,) tensor mapping original primitives → merged plane IDs
+        ref_mesh_path         : str path to the reference mesh (e.g. dataset.mono_mesh_dest),
+                                or a trimesh / open3d mesh object
+        dist_thresh           : float – max allowed min-orthogonal distance (metres).
+                                Planes whose closest ref vertex is farther than this are removed.
+
+    Returns:
+        filtered_mesh         : trimesh.Trimesh with floating planes removed
+        plane_ins_id_filtered : tensor with removed plane IDs zeroed out
+    """
+    import open3d as o3d
+
+    # ------------------------------------------------------------------ load ref mesh vertices
+    if isinstance(ref_mesh_path, str):
+        ref_mesh = o3d.io.read_triangle_mesh(ref_mesh_path)
+        ref_verts = torch.from_numpy(np.asarray(ref_mesh.vertices)).float().cuda()
+    else:
+        # Accepts an open3d TriangleMesh passed directly
+        ref_verts = torch.from_numpy(np.asarray(ref_mesh_path.vertices)).float().cuda()
+
+    # ------------------------------------------------------------------ per-vertex plane IDs
+    pts_ins_assignment = planarSplat_eval_mesh.vertex_attributes['pts_ins_assignment']  # (V,)
+    all_vertices = torch.from_numpy(
+        np.array(planarSplat_eval_mesh.vertices, dtype=np.float32)
+    ).cuda()  # (V, 3)
+
+    unique_labels = np.unique(pts_ins_assignment)
+    unique_labels = unique_labels[unique_labels > 0]
+
+    labels_to_remove = []
+
+    for label in unique_labels:
+        vert_mask = pts_ins_assignment == label
+        if vert_mask.sum() < 3:
+            labels_to_remove.append(label)
+            continue
+
+        plane_verts = all_vertices[torch.from_numpy(vert_mask).cuda()]  # (K, 3)
+
+        # Fit plane normal via PCA
+        centroid = plane_verts.mean(dim=0)
+        centered = plane_verts - centroid
+        try:
+            _, _, Vt = torch.linalg.svd(centered, full_matrices=False)
+            normal = F.normalize(Vt[-1], dim=0)  # (3,) – plane normal
+        except Exception:
+            labels_to_remove.append(label)
+            continue
+
+        # Plane equation: n·x + d = 0,  d = −n·centroid
+        d = -(normal * centroid).sum()
+
+        # Orthogonal distance from every ref-mesh vertex to this plane
+        ortho_dists = (ref_verts @ normal + d).abs()  # (M,)
+        min_dist = ortho_dists.min().item()
+
+        if min_dist > dist_thresh:
+            labels_to_remove.append(label)
+
+    logger.info(
+        f"[filter_plane2mesh] dist_thresh={dist_thresh}m | "
+        f"removing {len(labels_to_remove)} / {len(unique_labels)} planes"
+    )
+
+    if len(labels_to_remove) == 0:
+        return planarSplat_eval_mesh, plane_ins_id_new
+
+    labels_to_remove_set = set(int(l) for l in labels_to_remove)
+
+    # ------------------------------------------------------------------ filter trimesh faces
+    faces = np.array(planarSplat_eval_mesh.faces)              # (F, 3)
+    face_labels = pts_ins_assignment[faces]                    # (F, 3)
+    # Remove a face if ANY of its vertex labels belongs to a removed plane
+    remove_face = np.isin(face_labels, list(labels_to_remove_set)).any(axis=-1)  # (F,)
+    keep_face = ~remove_face
+
+    filtered_mesh = planarSplat_eval_mesh.copy()
+    filtered_mesh.update_faces(keep_face)
+    filtered_mesh.remove_unreferenced_vertices()
+
+    # ------------------------------------------------------------------ update plane_ins_id
+    plane_ins_id_filtered = plane_ins_id_new.clone()
+    for label in labels_to_remove:
+        plane_ins_id_filtered[plane_ins_id_filtered == int(label)] = 0
+
+    return filtered_mesh, plane_ins_id_filtered
+
 def merge_plane(
     net, 
     plane_ins_id: Optional[List]=None, 
