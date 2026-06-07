@@ -18,13 +18,25 @@ def filter_plane2mesh(planarSplat_eval_mesh, plane_ins_id_new, ref_mesh_path, di
     """
     Remove planar segments that are floating too far from the reference mesh.
 
+    For each merged plane we find the minimum 3-D Euclidean distance from any of
+    its (bounded) vertices to any reference-mesh vertex.  If that minimum exceeds
+    dist_thresh the plane is considered floating and is removed.
+
+    This is correct for bounded planes: a large floor/wall plane will always have
+    some vertices very close to the ref mesh → kept.  A small floater in the air
+    will have ALL vertices far from the ref mesh → removed.
+
+    The nearest-neighbour pass is done once over ALL plane vertices in one
+    vectorised pykeops call for efficiency.
+
     Args:
         planarSplat_eval_mesh : trimesh.Trimesh with vertex_attributes['pts_ins_assignment']
         plane_ins_id_new      : (N,) tensor mapping original primitives → merged plane IDs
         ref_mesh_path         : str path to the reference mesh (e.g. dataset.mono_mesh_dest),
-                                or a trimesh / open3d mesh object
-        dist_thresh           : float – max allowed min-orthogonal distance (metres).
-                                Planes whose closest ref vertex is farther than this are removed.
+                                or an open3d TriangleMesh object
+        dist_thresh           : float – max allowed min-3D-distance (metres).
+                                Planes whose closest vertex to any ref vertex is farther
+                                than this are removed.
 
     Returns:
         filtered_mesh         : trimesh.Trimesh with floating planes removed
@@ -41,7 +53,7 @@ def filter_plane2mesh(planarSplat_eval_mesh, plane_ins_id_new, ref_mesh_path, di
         ref_verts = torch.from_numpy(np.asarray(ref_mesh_path.vertices)).float().cuda()
 
     # ------------------------------------------------------------------ per-vertex plane IDs
-    pts_ins_assignment = planarSplat_eval_mesh.vertex_attributes['pts_ins_assignment']  # (V,)
+    pts_ins_assignment = planarSplat_eval_mesh.vertex_attributes['pts_ins_assignment']  # (V,) numpy
     all_vertices = torch.from_numpy(
         np.array(planarSplat_eval_mesh.vertices, dtype=np.float32)
     ).cuda()  # (V, 3)
@@ -49,34 +61,24 @@ def filter_plane2mesh(planarSplat_eval_mesh, plane_ins_id_new, ref_mesh_path, di
     unique_labels = np.unique(pts_ins_assignment)
     unique_labels = unique_labels[unique_labels > 0]
 
+    # ------------------------------------------------------------------ global NN pass (one shot)
+    # Only consider vertices that belong to a labelled plane (label > 0)
+    valid_mask = pts_ins_assignment > 0                                      # (V,) numpy bool
+    valid_verts = all_vertices[torch.from_numpy(valid_mask).cuda()]         # (Vv, 3)
+    valid_assignment = torch.from_numpy(pts_ins_assignment[valid_mask]).cuda()  # (Vv,)
+
+    # For every valid plane vertex find the distance to its nearest ref-mesh vertex
+    x_i = LazyTensor(valid_verts[:, None, :])    # (Vv, 1, 3)
+    y_j = LazyTensor(ref_verts[None, :, :])      # (1,  M, 3)
+    dist_sq = ((x_i - y_j) ** 2).sum(-1)         # (Vv, M) symbolic
+    min_dist_to_ref = torch.sqrt(dist_sq.min(dim=1).squeeze())  # (Vv,)
+
+    # ------------------------------------------------------------------ per-plane decision
     labels_to_remove = []
-
     for label in unique_labels:
-        vert_mask = pts_ins_assignment == label
-        if vert_mask.sum() < 3:
-            labels_to_remove.append(label)
-            continue
-
-        plane_verts = all_vertices[torch.from_numpy(vert_mask).cuda()]  # (K, 3)
-
-        # Fit plane normal via PCA
-        centroid = plane_verts.mean(dim=0)
-        centered = plane_verts - centroid
-        try:
-            _, _, Vt = torch.linalg.svd(centered, full_matrices=False)
-            normal = F.normalize(Vt[-1], dim=0)  # (3,) – plane normal
-        except Exception:
-            labels_to_remove.append(label)
-            continue
-
-        # Plane equation: n·x + d = 0,  d = −n·centroid
-        d = -(normal * centroid).sum()
-
-        # Orthogonal distance from every ref-mesh vertex to this plane
-        ortho_dists = (ref_verts @ normal + d).abs()  # (M,)
-        min_dist = ortho_dists.min().item()
-
-        if min_dist > dist_thresh:
+        label_mask = valid_assignment == int(label)   # (Vv,) bool cuda tensor
+        plane_min_dist = min_dist_to_ref[label_mask].min().item()
+        if plane_min_dist > dist_thresh:
             labels_to_remove.append(label)
 
     logger.info(
