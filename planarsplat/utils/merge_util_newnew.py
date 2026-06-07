@@ -98,9 +98,17 @@ def filter_plane2mesh(planarSplat_eval_mesh, plane_ins_id_new, ref_mesh_path, di
     remove_face = np.isin(face_labels, list(labels_to_remove_set)).any(axis=-1)  # (F,)
     keep_face = ~remove_face
 
+    # Record which original vertex indices are still referenced BEFORE remapping,
+    # so we can manually restore vertex_attributes afterwards.
+    # (trimesh.remove_unreferenced_vertices does not reliably propagate custom attributes)
+    kept_vert_idx = np.unique(faces[keep_face])  # old vertex indices that survive, sorted
+
     filtered_mesh = planarSplat_eval_mesh.copy()
     filtered_mesh.update_faces(keep_face)
     filtered_mesh.remove_unreferenced_vertices()
+
+    # Restore pts_ins_assignment: new vertex i corresponds to old vertex kept_vert_idx[i]
+    filtered_mesh.vertex_attributes['pts_ins_assignment'] = pts_ins_assignment[kept_vert_idx]
 
     # ------------------------------------------------------------------ update plane_ins_id
     plane_ins_id_filtered = plane_ins_id_new.clone()
