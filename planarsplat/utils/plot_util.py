@@ -84,9 +84,9 @@ def plot_rectangle_planes(plane_centers, plane_normals, plane_radii, rot_q, epoc
         colors = colors.astype(np.float64) / 255.
         triangle_mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
         suffix = suffix + '_colorPrim'
-    elif color_type == 'category4':
+    elif color_type == 'rgb':
         if plane_id is None:
-            raise ValueError('category4 color_type requires plane_id/category_id')
+            raise ValueError('rgb color_type requires plane_id/category_id')
         plane_id = plane_id.reshape(-1, 1).repeat(1, 4).int().cuda()
 
         category_colors = np.array([
@@ -98,10 +98,10 @@ def plot_rectangle_planes(plane_centers, plane_normals, plane_radii, rot_q, epoc
 
         cat_np = plane_id.detach().cpu().numpy().reshape(-1)
         if cat_np.max() >= len(category_colors):
-            raise ValueError(f'category id {cat_np.max()} out of range for category4')
+            raise ValueError(f'category id {cat_np.max()} out of range for rgb')
         colors = category_colors[cat_np]
         triangle_mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
-        suffix = suffix + '_category4'
+        suffix = suffix + '_rgb'
     else:
         pass
 
