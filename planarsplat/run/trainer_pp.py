@@ -91,7 +91,7 @@ class PlanarSplatTrainRunner():
             logger.info(f'Training finished in {train_time/60:.2f} minutes.')
             
             start_time = time.time()
-            self.merger()
+            self.merger(debug_output=True)
             merge_time = time.time() - start_time
             logger.info(f'Merging finished in {merge_time/60:.2f} minutes.')
             
