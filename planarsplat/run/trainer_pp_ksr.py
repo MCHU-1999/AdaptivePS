@@ -218,7 +218,7 @@ class PlanarSplatTrainRunner():
         logger.info("number of 3D planar primitives = %d"%(self.net.planarSplat.get_plane_num()))
 
         ## Merge planes
-        ref_mesh = o3d.read(self.dataset.mono_mesh_dest)
+        ref_mesh = o3d.io.read_triangle_mesh(self.dataset.mono_mesh_dest)
 
         merge_config_coarse = self.conf.get_config('merge_coarse', default=None)
         merge_config_fine = self.conf.get_config('merge_fine', default=None)

@@ -36,14 +36,14 @@ if __name__ == "__main__":
     da3_inference_all_scenes(SCENES)
 
     ## PlanarSplatting
-    for scene in SCENES:
-        run_adaptivePS(
-            data_path=scene['data_path'],
-            exp_name=scene['exp_name'],
-            out_path="AdaptivePS/TnT",
-            conf_path="configs/APS-Barn.conf",
-            mask="bldg_masks"
-        )
+    # for scene in SCENES:
+    #     run_adaptivePS(
+    #         data_path=scene['data_path'],
+    #         exp_name=scene['exp_name'],
+    #         out_path="AdaptivePS/TnT",
+    #         conf_path="configs/APS-Barn.conf",
+    #         mask="bldg_masks"
+    #     )
     for scene in SCENES:
         run_adaptivePS(
             data_path=scene['data_path'],
