@@ -12,7 +12,7 @@ SCENES = [
     {
         "exp_name": "Barn",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn",
-        "bldg_prompt": "The barn house in foreground",
+        "bldg_prompt": "the baige house",
         "bldg_mask_mode": "biggest",
         "gnd_prompt": ["ground", "grass", "pavement"],
         "depth_trunc": 6,
@@ -30,10 +30,10 @@ if __name__ == "__main__":
     set_hf_token_from_txt(token_path)
 
     ## SAM3
-    # sam_inference_all_scenes(SCENES)
+    sam_inference_all_scenes(SCENES)
 
     ## DA3
-    # da3_inference_all_scenes(SCENES)
+    da3_inference_all_scenes(SCENES)
 
     ## PlanarSplatting
     for scene in SCENES:
