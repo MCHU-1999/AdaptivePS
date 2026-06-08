@@ -234,19 +234,18 @@ class PlanarSplatTrainRunner():
                 # The rest
                 **merge_config_coarse
             )
-
-            if merge_config_fine is not None:
-                logger.info(f'mergeing (fine)...')
-                planarSplat_eval_mesh, plane_ins_id_new = merge_plane(
-                    self.net, 
-                    ref_mesh, 
-                    plane_ins_id=plane_ins_id_new,
-                    # New parameters for trimming bg points
-                    view_info_list=self.dataset.view_info_list,
-                    H=self.H, W=self.W,
-                    # The rest
-                    **merge_config_fine
-                )
+            # if merge_config_fine is not None:
+            #     logger.info(f'mergeing (fine)...')
+            #     planarSplat_eval_mesh, plane_ins_id_new = merge_plane(
+            #         self.net, 
+            #         ref_mesh, 
+            #         plane_ins_id=plane_ins_id_new,
+            #         # New parameters for trimming bg points
+            #         view_info_list=self.dataset.view_info_list,
+            #         H=self.H, W=self.W,
+            #         # The rest
+            #         **merge_config_fine
+            #     )
         else:
             raise ValueError("No merge configuration found!")
 
