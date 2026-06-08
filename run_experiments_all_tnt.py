@@ -12,7 +12,7 @@ SCENES = [
     {
         "exp_name": "Barn",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn",
-        "bldg_prompt": "the baige house",
+        "bldg_prompt": "the wooden house",
         "bldg_mask_mode": "biggest",
         "gnd_prompt": ["ground", "grass", "pavement"],
         "depth_trunc": 6,
