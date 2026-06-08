@@ -13,116 +13,13 @@ import itertools
 from utils.model_util import quat_to_rot
 from utils.plot_util import plot_rectangle_planes
 
-
-def filter_plane2mesh(planarSplat_eval_mesh, plane_ins_id_new, ref_mesh_path, dist_thresh=0.15):
-    """
-    Remove planar segments that are floating too far from the reference mesh.
-
-    For each merged plane we find the minimum 3-D Euclidean distance from any of
-    its (bounded) vertices to any reference-mesh vertex.  If that minimum exceeds
-    dist_thresh the plane is considered floating and is removed.
-
-    This is correct for bounded planes: a large floor/wall plane will always have
-    some vertices very close to the ref mesh → kept.  A small floater in the air
-    will have ALL vertices far from the ref mesh → removed.
-
-    The nearest-neighbour pass is done once over ALL plane vertices in one
-    vectorised pykeops call for efficiency.
-
-    Args:
-        planarSplat_eval_mesh : trimesh.Trimesh with vertex_attributes['pts_ins_assignment']
-        plane_ins_id_new      : (N,) tensor mapping original primitives → merged plane IDs
-        ref_mesh_path         : str path to the reference mesh (e.g. dataset.mono_mesh_dest),
-                                or an open3d TriangleMesh object
-        dist_thresh           : float – max allowed min-3D-distance (metres).
-                                Planes whose closest vertex to any ref vertex is farther
-                                than this are removed.
-
-    Returns:
-        filtered_mesh         : trimesh.Trimesh with floating planes removed
-        plane_ins_id_filtered : tensor with removed plane IDs zeroed out
-    """
-    import open3d as o3d
-
-    # ------------------------------------------------------------------ load ref mesh vertices
-    if isinstance(ref_mesh_path, str):
-        ref_mesh = o3d.io.read_triangle_mesh(ref_mesh_path)
-        ref_verts = torch.from_numpy(np.asarray(ref_mesh.vertices)).float().cuda()
-    else:
-        # Accepts an open3d TriangleMesh passed directly
-        ref_verts = torch.from_numpy(np.asarray(ref_mesh_path.vertices)).float().cuda()
-
-    # ------------------------------------------------------------------ per-vertex plane IDs
-    pts_ins_assignment = planarSplat_eval_mesh.vertex_attributes['pts_ins_assignment']  # (V,) numpy
-    all_vertices = torch.from_numpy(
-        np.array(planarSplat_eval_mesh.vertices, dtype=np.float32)
-    ).cuda()  # (V, 3)
-
-    unique_labels = np.unique(pts_ins_assignment)
-    unique_labels = unique_labels[unique_labels > 0]
-
-    # ------------------------------------------------------------------ global NN pass (one shot)
-    # Only consider vertices that belong to a labelled plane (label > 0)
-    valid_mask = pts_ins_assignment > 0                                      # (V,) numpy bool
-    valid_verts = all_vertices[torch.from_numpy(valid_mask).cuda()]         # (Vv, 3)
-    valid_assignment = torch.from_numpy(pts_ins_assignment[valid_mask]).cuda()  # (Vv,)
-
-    # For every valid plane vertex find the distance to its nearest ref-mesh vertex
-    x_i = LazyTensor(valid_verts[:, None, :])    # (Vv, 1, 3)
-    y_j = LazyTensor(ref_verts[None, :, :])      # (1,  M, 3)
-    dist_sq = ((x_i - y_j) ** 2).sum(-1)         # (Vv, M) symbolic
-    min_dist_to_ref = torch.sqrt(dist_sq.min(dim=1).squeeze())  # (Vv,)
-
-    # ------------------------------------------------------------------ per-plane decision
-    labels_to_remove = []
-    for label in unique_labels:
-        label_mask = valid_assignment == int(label)   # (Vv,) bool cuda tensor
-        plane_min_dist = min_dist_to_ref[label_mask].min().item()
-        if plane_min_dist > dist_thresh:
-            labels_to_remove.append(label)
-
-    logger.info(
-        f"[filter_plane2mesh] dist_thresh={dist_thresh}m | "
-        f"removing {len(labels_to_remove)} / {len(unique_labels)} planes"
-    )
-
-    if len(labels_to_remove) == 0:
-        return planarSplat_eval_mesh, plane_ins_id_new
-
-    labels_to_remove_set = set(int(l) for l in labels_to_remove)
-
-    # ------------------------------------------------------------------ filter trimesh faces
-    faces = np.array(planarSplat_eval_mesh.faces)              # (F, 3)
-    face_labels = pts_ins_assignment[faces]                    # (F, 3)
-    # Remove a face if ANY of its vertex labels belongs to a removed plane
-    remove_face = np.isin(face_labels, list(labels_to_remove_set)).any(axis=-1)  # (F,)
-    keep_face = ~remove_face
-
-    # Record which original vertex indices are still referenced BEFORE remapping,
-    # so we can manually restore vertex_attributes afterwards.
-    # (trimesh.remove_unreferenced_vertices does not reliably propagate custom attributes)
-    kept_vert_idx = np.unique(faces[keep_face])  # old vertex indices that survive, sorted
-
-    filtered_mesh = planarSplat_eval_mesh.copy()
-    filtered_mesh.update_faces(keep_face)
-    filtered_mesh.remove_unreferenced_vertices()
-
-    # Restore pts_ins_assignment: new vertex i corresponds to old vertex kept_vert_idx[i]
-    filtered_mesh.vertex_attributes['pts_ins_assignment'] = pts_ins_assignment[kept_vert_idx]
-
-    # ------------------------------------------------------------------ update plane_ins_id
-    plane_ins_id_filtered = plane_ins_id_new.clone()
-    for label in labels_to_remove:
-        plane_ins_id_filtered[plane_ins_id_filtered == int(label)] = 0
-
-    return filtered_mesh, plane_ins_id_filtered
-
 def merge_plane(
     net, 
+    coarse_mesh_o3d,    # This mesh is fused using voxel_length=dataset.voxel_length
     plane_ins_id: Optional[List]=None, 
     normal_angle_thresh: float=25,
     dist_thresh: float=0.05, 
-
+    mesh_dist_thresh: float=0.05,
     space_resolution: float=0.02,   # This decides the point sampling (and the final mesh) resolution
     voxel_size: float=0.01, # This is not used to fuse mesh, instead it's used to determine connectivity 
     min_pts_num: int=25,    # This is used to remove small planes
@@ -130,7 +27,7 @@ def merge_plane(
     H: Optional[int]=None,
     W: Optional[int]=None,
     trim_enabled: bool=False,
-    **kwargs
+    **kwargs    # absorbs obsolete config keys
 ):
     torch.use_deterministic_algorithms(False)
     min_pts_num = max((0.1/space_resolution)**2, min_pts_num)
@@ -150,8 +47,13 @@ def merge_plane(
         plane_rot_q, 
         space_resolution=space_resolution,
         plane_ins_id=plane_ins_id)
+    
+    ## calculate pts2mesh distance
+    dist_pts2mesh_original = calculate_pts2mesh_dist(pts_original, coarse_mesh_o3d)
 
+    ## calculate masked pts assignment
     pts_ins_assignment_masked = pts_ins_assignment_original.clone()
+    pts_ins_assignment_masked[dist_pts2mesh_original > mesh_dist_thresh] = 0
 
     ## mask the bg points as well
     if trim_enabled and view_info_list is not None and H is not None and W is not None:
@@ -248,8 +150,6 @@ def merge_plane(
             count += 1
     logger.info("number of planar instances = %d"%(count))
     pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
-
-
 
     plane_ins_id_new = get_planeInsId_from_ptsInsAssignment(plane_normal.shape[0], pts_ins_assignment_original, pts_ins_assignment_final)
     planar_mesh, mesh_pts = build_planar_mesh_for_eval(

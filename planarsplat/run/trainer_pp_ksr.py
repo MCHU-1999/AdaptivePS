@@ -13,7 +13,7 @@ from .net_wrapper import PlanarRecWrapper
 from utils.misc_util import setup_logging, get_train_param, save_config_files, prepare_folders, get_class
 from utils.trainer_util import resume_model, calculate_plane_depth, plot_plane_img, save_checkpoints
 from utils.mesh_util import get_coarse_mesh, remove_mesh_attribute
-from utils.merge_util_newnew import merge_plane, filter_plane2mesh
+from utils.merge_util_newnew import merge_plane
 from utils.loss_util import normal_loss, metric_depth_loss
 from utils.model_util import split_planes_xy_via_mask
 
@@ -217,13 +217,16 @@ class PlanarSplatTrainRunner():
         self.net.prune_small_plane(min_radii=self.voxel_length)
         logger.info("number of 3D planar primitives = %d"%(self.net.planarSplat.get_plane_num()))
 
-        ## Merge planes        
+        ## Merge planes
+        ref_mesh = o3d.read(self.dataset.mono_mesh_dest)
+
         merge_config_coarse = self.conf.get_config('merge_coarse', default=None)
         merge_config_fine = self.conf.get_config('merge_fine', default=None)
         if merge_config_coarse is not None:
             logger.info(f'mergeing (coarse)...')
             planarSplat_eval_mesh, plane_ins_id_new = merge_plane(
                 self.net, 
+                ref_mesh, 
                 plane_ins_id=None,
                 # New parameters for trimming bg points
                 view_info_list=self.dataset.view_info_list,
@@ -236,6 +239,7 @@ class PlanarSplatTrainRunner():
                 logger.info(f'mergeing (fine)...')
                 planarSplat_eval_mesh, plane_ins_id_new = merge_plane(
                     self.net, 
+                    ref_mesh, 
                     plane_ins_id=plane_ins_id_new,
                     # New parameters for trimming bg points
                     view_info_list=self.dataset.view_info_list,
@@ -245,12 +249,6 @@ class PlanarSplatTrainRunner():
                 )
         else:
             raise ValueError("No merge configuration found!")
-
-        ## prune merged planes if too far away from ref_mesh
-        # Use mono-mesh as reference mesh (orthogonal distance per plane, default 0.15 m)
-        planarSplat_eval_mesh, plane_ins_id_new = filter_plane2mesh(
-            planarSplat_eval_mesh, plane_ins_id_new, self.dataset.mono_mesh_dest
-        )
 
         if save_mesh_for_KSR:
             save_path = os.path.join(save_root, f"planar_mesh_for_KSR.ply")

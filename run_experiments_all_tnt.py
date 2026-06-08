@@ -12,7 +12,7 @@ SCENES = [
     {
         "exp_name": "Barn",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn",
-        "bldg_prompt": "barn house",
+        "bldg_prompt": "The barn house",
         "bldg_mask_mode": "biggest",
         "gnd_prompt": ["ground", "grass", "pavement"],
         "depth_trunc": 6,
@@ -44,11 +44,11 @@ if __name__ == "__main__":
             conf_path="configs/APS-Barn.conf",
             mask="bldg_masks"
         )
-    # for scene in SCENES:
-    #     run_adaptivePS(
-    #         data_path=scene['data_path'],
-    #         exp_name=scene['exp_name'],
-    #         out_path="AdaptivePS-KSR/TnT",
-    #         conf_path="configs/APS-Barn-KSR.conf",
-    #         mask="bldg_masks"
-    #     )
+    for scene in SCENES:
+        run_adaptivePS(
+            data_path=scene['data_path'],
+            exp_name=scene['exp_name'],
+            out_path="AdaptivePS-KSR/TnT",
+            conf_path="configs/APS-Barn-KSR.conf",
+            mask="bldg_masks"
+        )
