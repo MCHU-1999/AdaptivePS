@@ -218,23 +218,22 @@ class PlanarSplatTrainRunner():
         self.net.prune_small_plane(min_radii=self.voxel_length)
         logger.info("number of 3D planar primitives = %d"%(self.net.planarSplat.get_plane_num()))
 
-        # ref_mesh = get_coarse_mesh(
-        #     self.net, 
-        #     self.dataset.view_info_list.copy(), 
-        #     self.H, 
-        #     self.W, 
-        #     voxel_length=self.voxel_length, 
-        #     sdf_trunc=self.sdf_trunc,
-        #     depth_trunc=self.depth_trunc,
-        #     process_mesh=self.process_mesh
-        # )
-        # if debug_output:
-        #     save_path = os.path.join(save_root, f"ref_mesh.ply")
-        #     logger.info(f'saving reference mesh to {save_path} ---DEBUG')
-        #     o3d.io.write_triangle_mesh(
-        #                 save_path, 
-        #                 ref_mesh)
-        ref_mesh = o3d.io.read_triangle_mesh(self.dataset.mono_mesh_dest)
+        ref_mesh = get_coarse_mesh(
+            self.net, 
+            self.dataset.view_info_list.copy(), 
+            self.H, 
+            self.W, 
+            voxel_length=self.voxel_length, 
+            sdf_trunc=self.sdf_trunc,
+            depth_trunc=self.depth_trunc,
+            process_mesh=self.process_mesh
+        )
+        if debug_output:
+            save_path = os.path.join(save_root, f"ref_mesh.ply")
+            logger.info(f'saving reference mesh to {save_path} ---DEBUG')
+            o3d.io.write_triangle_mesh(
+                        save_path, 
+                        ref_mesh)
         
         merge_config_coarse = self.conf.get_config('merge_coarse', default=None)
         merge_config_fine = self.conf.get_config('merge_fine', default=None)
