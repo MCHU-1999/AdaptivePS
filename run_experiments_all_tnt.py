@@ -40,7 +40,7 @@ if __name__ == "__main__":
         run_adaptivePS(
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
-            out_path="AdaptivePS/TnT",
-            conf_path="configs/APS-Barn.conf",
+            out_path="AdaptivePS-new/TnT",
+            conf_path="configs/APS-Barn-new.conf",
             mask="bldg_masks"
         )

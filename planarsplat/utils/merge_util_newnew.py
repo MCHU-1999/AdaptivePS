@@ -19,7 +19,8 @@ def merge_plane(
     plane_ins_id: Optional[List]=None, 
     normal_angle_thresh: float=25,
     dist_thresh: float=0.05, 
-    mesh_dist_thresh: float=0.05,
+    mesh_dist_thresh: float=0.01,
+    close_fraction_thresh: float=0.3,  # min fraction of plane pts within mesh_dist_thresh to keep a plane
     space_resolution: float=0.02,   # This decides the point sampling (and the final mesh) resolution
     voxel_size: float=0.01, # This is not used to fuse mesh, instead it's used to determine connectivity 
     min_pts_num: int=25,    # This is used to remove small planes
@@ -27,7 +28,7 @@ def merge_plane(
     H: Optional[int]=None,
     W: Optional[int]=None,
     trim_enabled: bool=False,
-    **kwargs    # absorbs obsolete config keys
+    **kwargs
 ):
     torch.use_deterministic_algorithms(False)
     min_pts_num = max((0.1/space_resolution)**2, min_pts_num)
@@ -51,9 +52,9 @@ def merge_plane(
     ## calculate pts2mesh distance
     dist_pts2mesh_original = calculate_pts2mesh_dist(pts_original, coarse_mesh_o3d)
 
-    ## calculate masked pts assignment
+    ## No early per-point mesh masking — filtering is done at the plane level after merging.
+    ## dist_pts2mesh_original is kept for the late filter below.
     pts_ins_assignment_masked = pts_ins_assignment_original.clone()
-    pts_ins_assignment_masked[dist_pts2mesh_original > mesh_dist_thresh] = 0
 
     ## mask the bg points as well
     if trim_enabled and view_info_list is not None and H is not None and W is not None:
@@ -67,7 +68,7 @@ def merge_plane(
         )
 
     ## split planes into different group via normal 
-    # NG almost certainly means "grouped by normal"
+    # NG almost certainly means "normal grouped"
     pts_ins_assignment_masked_NG = group_plane_via_normal(
         pts_normal_original, # S, 3
         pts_ins_assignment_masked, # S
@@ -120,19 +121,20 @@ def merge_plane(
         assert pts_ins_assignment_masked_tmp[pts_ins_assignment_masked_cur>0].sum() == 0
         pts_ins_assignment_masked_tmp = pts_ins_assignment_masked_tmp + pts_ins_assignment_masked_cur
         start_ins_id = pts_ins_assignment_masked_tmp.max()+1
-    pts_ins_assignment_masked_NG_cc_DG = get_continues_pts_ins_assignment(pts_ins_assignment_masked_tmp).int()
+    # pts_ins_assignment_masked_NG_cc_DG = get_continues_pts_ins_assignment(pts_ins_assignment_masked_tmp).int()
+    pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_masked_tmp).int()
 
-    ## merge floor again
-    pts_ins_assignment_masked_NG_cc_DG_mf = merge_coplanar(
-        pts_updated, # S, 3
-        pts_normal_updated, # S, 3
-        pts_ins_assignment_masked_NG_cc_DG, # S
-        voxel_size=voxel_size,
-        normal_angle_thresh=normal_angle_thresh,
-        dist_thresh=dist_thresh
-    )
-    pts_ins_assignment_masked_NG_cc_DG_mf = get_continues_pts_ins_assignment(pts_ins_assignment_masked_NG_cc_DG_mf).int()
-    pts_ins_assignment_final = pts_ins_assignment_masked_NG_cc_DG_mf.clone()
+    # ## merge floor again
+    # pts_ins_assignment_masked_NG_cc_DG_mf = merge_coplanar(
+    #     pts_updated, # S, 3
+    #     pts_normal_updated, # S, 3
+    #     pts_ins_assignment_masked_NG_cc_DG, # S
+    #     voxel_size=voxel_size,
+    #     normal_angle_thresh=normal_angle_thresh,
+    #     dist_thresh=dist_thresh
+    # )
+    # pts_ins_assignment_masked_NG_cc_DG_mf = get_continues_pts_ins_assignment(pts_ins_assignment_masked_NG_cc_DG_mf).int()
+    # pts_ins_assignment_final = pts_ins_assignment_masked_NG_cc_DG_mf.clone()
 
     ## move points onto plane
     pts_updated = move_pts_onto_plane_simple(pts_updated.clone(), pts_normal_updated, pts_ins_assignment_final)
@@ -149,6 +151,24 @@ def merge_plane(
         else:
             count += 1
     logger.info("number of planar instances = %d"%(count))
+    pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
+
+    ## Late plane-level mesh-distance filter.
+    ## A plane is kept only if >= close_fraction_thresh of its points lie within
+    ## mesh_dist_thresh of the coarse mesh.  This is robust to mesh holes: a real
+    ## plane that straddles a hole still has most of its points close to the mesh,
+    ## while a true floater plane has almost none.
+    is_close = dist_pts2mesh_original <= mesh_dist_thresh  # (S,) bool tensor
+    removed_by_mesh = 0
+    for label in pts_ins_assignment_final.unique():
+        if label == 0:
+            continue
+        mask = pts_ins_assignment_final == label
+        close_fraction = is_close[mask].float().mean().item()
+        if close_fraction < close_fraction_thresh:
+            pts_ins_assignment_final[mask] = 0
+            removed_by_mesh += 1
+    logger.info(f"Late mesh filter: removed {removed_by_mesh} plane(s) with <{close_fraction_thresh:.0%} pts near mesh")
     pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
 
     plane_ins_id_new = get_planeInsId_from_ptsInsAssignment(plane_normal.shape[0], pts_ins_assignment_original, pts_ins_assignment_final)

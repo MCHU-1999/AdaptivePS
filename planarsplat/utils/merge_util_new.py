@@ -67,7 +67,7 @@ def merge_plane(
         )
 
     ## split planes into different group via normal 
-    # NG almost certainly means "grouped by normal"
+    # NG almost certainly means "normal grouped"
     pts_ins_assignment_masked_NG = group_plane_via_normal(
         pts_normal_original, # S, 3
         pts_ins_assignment_masked, # S
