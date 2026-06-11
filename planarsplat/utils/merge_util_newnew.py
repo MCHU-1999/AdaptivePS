@@ -64,7 +64,7 @@ def merge_plane(
             view_info_list=view_info_list,
             H=H,
             W=W,
-            max_bg_ratio=0.4,
+            max_bg_ratio=0.3,
         )
 
     ## split planes into different group via normal 
@@ -121,20 +121,19 @@ def merge_plane(
         assert pts_ins_assignment_masked_tmp[pts_ins_assignment_masked_cur>0].sum() == 0
         pts_ins_assignment_masked_tmp = pts_ins_assignment_masked_tmp + pts_ins_assignment_masked_cur
         start_ins_id = pts_ins_assignment_masked_tmp.max()+1
-    # pts_ins_assignment_masked_NG_cc_DG = get_continues_pts_ins_assignment(pts_ins_assignment_masked_tmp).int()
-    pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_masked_tmp).int()
+    pts_ins_assignment_masked_NG_cc_DG = get_continues_pts_ins_assignment(pts_ins_assignment_masked_tmp).int()
 
-    # ## merge floor again
-    # pts_ins_assignment_masked_NG_cc_DG_mf = merge_coplanar(
-    #     pts_updated, # S, 3
-    #     pts_normal_updated, # S, 3
-    #     pts_ins_assignment_masked_NG_cc_DG, # S
-    #     voxel_size=voxel_size,
-    #     normal_angle_thresh=normal_angle_thresh,
-    #     dist_thresh=dist_thresh
-    # )
-    # pts_ins_assignment_masked_NG_cc_DG_mf = get_continues_pts_ins_assignment(pts_ins_assignment_masked_NG_cc_DG_mf).int()
-    # pts_ins_assignment_final = pts_ins_assignment_masked_NG_cc_DG_mf.clone()
+    ## merge floor again
+    pts_ins_assignment_masked_NG_cc_DG_mf = merge_coplanar(
+        pts_updated, # S, 3
+        pts_normal_updated, # S, 3
+        pts_ins_assignment_masked_NG_cc_DG, # S
+        voxel_size=voxel_size,
+        normal_angle_thresh=normal_angle_thresh,
+        dist_thresh=dist_thresh
+    )
+    pts_ins_assignment_masked_NG_cc_DG_mf = get_continues_pts_ins_assignment(pts_ins_assignment_masked_NG_cc_DG_mf).int()
+    pts_ins_assignment_final = pts_ins_assignment_masked_NG_cc_DG_mf.clone()
 
     ## move points onto plane
     pts_updated = move_pts_onto_plane_simple(pts_updated.clone(), pts_normal_updated, pts_ins_assignment_final)
