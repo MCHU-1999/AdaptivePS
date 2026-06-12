@@ -38,7 +38,7 @@ if __name__ == "__main__":
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
             out_path="AdaptivePS/DTU-Building",
-            conf_path="configs/APS++DTU.conf",
+            conf_path="configs/APS-DTU.conf",
             mask="bldg_masks"
         )
 
