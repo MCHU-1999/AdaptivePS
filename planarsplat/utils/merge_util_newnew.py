@@ -415,13 +415,17 @@ def build_planar_mesh_for_eval(pts, pts_normal, pts_ins_assignment, faces, move_
         logger.warning("using original points....")
 
     # -------------------------------------------------------------------- convert to trimesh
-    normals_np = pts_normal.cpu().numpy()   # per-vertex plane normals (S, 3)
+    normals_np = pts_normal.cpu().numpy().astype(np.float32)
     mesh = trimesh.Trimesh(
         vertices=vertices, 
         faces=faces, 
         vertex_colors=pts_color,
-        vertex_normals=normals_np,
-        vertex_attributes={'pts_ins_assignment': pts_ins_assignment_np},
+        vertex_attributes={
+            'pts_ins_assignment': pts_ins_assignment_np,
+            'nx': normals_np[:, 0],
+            'ny': normals_np[:, 1],
+            'nz': normals_np[:, 2],
+        },
         process=False
     )
     
