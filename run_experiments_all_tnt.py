@@ -11,7 +11,16 @@ SCENES = [
     # TnT Datasets
     {
         "exp_name": "Barn",
-        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparseshot",
+        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse20",
+        "bldg_prompt": "The building",
+        "bldg_mask_mode": "biggest",
+        "gnd_prompt": ["ground", "grass", "pavement"],
+        "depth_trunc": 6,
+        "max_depth": 200,
+    },
+    {
+        "exp_name": "Barn",
+        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse40",
         "bldg_prompt": "The building",
         "bldg_mask_mode": "biggest",
         "gnd_prompt": ["ground", "grass", "pavement"],
@@ -36,11 +45,20 @@ if __name__ == "__main__":
     da3_inference_all_scenes(SCENES)
 
     ## PlanarSplatting
-    for scene in SCENES:
-        run_adaptivePS(
-            data_path=scene['data_path'],
-            exp_name=scene['exp_name'],
-            out_path="AdaptivePS-sparse/TnT",
-            conf_path="configs/APS-big.conf",
-            mask="bldg_masks"
-        )
+    scene = SCENES[0]
+    run_adaptivePS(
+        data_path=scene['data_path'],
+        exp_name=scene['exp_name'],
+        out_path="AdaptivePS-sparse/20",
+        conf_path="configs/APS-big.conf",
+        mask="bldg_masks"
+    )
+
+    scene = SCENES[1]
+    run_adaptivePS(
+        data_path=scene['data_path'],
+        exp_name=scene['exp_name'],
+        out_path="AdaptivePS-sparse/40",
+        conf_path="configs/APS-big.conf",
+        mask="bldg_masks"
+    )
