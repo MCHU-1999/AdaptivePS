@@ -27,6 +27,15 @@ SCENES = [
         "depth_trunc": 6,
         "max_depth": 200,
     },
+    {
+        "exp_name": "Barn",
+        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse80",
+        "bldg_prompt": "The building",
+        "bldg_mask_mode": "biggest",
+        "gnd_prompt": ["ground", "grass", "pavement"],
+        "depth_trunc": 6,
+        "max_depth": 200,
+    },
 ]
 
 
@@ -59,6 +68,15 @@ if __name__ == "__main__":
         data_path=scene['data_path'],
         exp_name=scene['exp_name'],
         out_path="AdaptivePS-sparse/40",
+        conf_path="configs/APS-big.conf",
+        mask="bldg_masks"
+    )
+
+    scene = SCENES[2]
+    run_adaptivePS(
+        data_path=scene['data_path'],
+        exp_name=scene['exp_name'],
+        out_path="AdaptivePS-sparse/80",
         conf_path="configs/APS-big.conf",
         mask="bldg_masks"
     )
