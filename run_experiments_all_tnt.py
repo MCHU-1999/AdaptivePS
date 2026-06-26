@@ -18,6 +18,7 @@ SCENES = [
         "gnd_prompt": ["ground", "grass", "pavement"],
         "depth_trunc": 6,
         "max_depth": 200,
+        "DA3_res": 840,
     },
     {
         "exp_name": "Barn",
@@ -27,6 +28,7 @@ SCENES = [
         "gnd_prompt": ["ground", "grass", "pavement"],
         "depth_trunc": 6,
         "max_depth": 200,
+        "DA3_res": 840,
     },
     {
         "exp_name": "Barn",
@@ -36,6 +38,7 @@ SCENES = [
         "gnd_prompt": ["ground", "grass", "pavement"],
         "depth_trunc": 6,
         "max_depth": 200,
+        "DA3_res": 840,
     },
 ]
 

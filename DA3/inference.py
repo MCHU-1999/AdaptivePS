@@ -188,8 +188,8 @@ def da3_inference_all_scenes(scenes):
                 intrinsics=intrinsics,
                 export_dir=data_dir,
                 export_format="planarsplatting-colmap",
-                process_res=420,
-                # process_res=840,
+                # process_res=420,
+                process_res=840,
                 process_res_method="upper_bound_resize",
                 export_kwargs={
                     "planarsplatting": {
