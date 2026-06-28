@@ -6,30 +6,28 @@ import torch
 import torch.nn.functional as F
 from loguru import logger
 from tqdm import tqdm
-from pytorch3d.ops import knn_points
+# from pytorch3d.ops import knn_points
+from pykeops.torch import LazyTensor
 import random
-import open3d as o3d
 import itertools
 from utils.model_util import quat_to_rot
 from utils.plot_util import plot_rectangle_planes
 
 def merge_plane(
     net, 
-    coarse_mesh_o3d,    # This thing now uses dataset.voxel_length
+    coarse_mesh_o3d,    # This mesh is fused using voxel_length=dataset.voxel_length
     plane_ins_id: Optional[List]=None, 
     normal_angle_thresh: float=25,
     dist_thresh: float=0.05, 
     mesh_dist_thresh: float=0.01,
     mesh_dist_thresh_2: float=0.015,
-    floor_height: float=1.0,
-    ceiling_height: float=-1,
-    space_resolution: float=0.02,
-    voxel_size: float=0.01,
-    fc_voxel_size: float=0.05,
-    find_fc_normal_angle_thresh: float=25,
-    fc_normal_angle_thresh: float=25,
-    fc_dist_thresh: float=0.2,
-    min_pts_num: int=25,
+    space_resolution: float=0.02,   # This decides the point sampling (and the final mesh) resolution
+    voxel_size: float=0.01, # This is not used to fuse mesh, instead it's used to determine connectivity 
+    min_pts_num: int=25,    # This is used to remove small planes
+    view_info_list=None,
+    H: Optional[int]=None,
+    W: Optional[int]=None,
+    trim_enabled: bool=False,
 ):
     torch.use_deterministic_algorithms(False)
     min_pts_num = max((0.1/space_resolution)**2, min_pts_num)
@@ -57,7 +55,19 @@ def merge_plane(
     pts_ins_assignment_masked = pts_ins_assignment_original.clone()
     pts_ins_assignment_masked[dist_pts2mesh_original > mesh_dist_thresh] = 0
 
+    ## mask the bg points as well
+    if trim_enabled and view_info_list is not None and H is not None and W is not None:
+        pts_ins_assignment_masked = mask_points_in_bg(
+            pts_world=pts_original,
+            pts_ins_assignment=pts_ins_assignment_masked,
+            view_info_list=view_info_list,
+            H=H,
+            W=W,
+            max_bg_ratio=0.4,
+        )
+
     ## split planes into different group via normal 
+    # NG almost certainly means "normal grouped"
     pts_ins_assignment_masked_NG = group_plane_via_normal(
         pts_normal_original, # S, 3
         pts_ins_assignment_masked, # S
@@ -71,22 +81,9 @@ def merge_plane(
         pts_updated = move_pts_onto_plane_simple(pts_original.clone(), pts_normal_updated, pts_ins_assignment_masked)
     else:
         pts_updated = pts_original.clone()
-    
-    '''
-    plane_ins_id_new = get_planeInsId_from_ptsInsAssignment(plane_normal.shape[0], pts_ins_assignment_original, pts_ins_assignment_masked_NG)
-    plot_rectangle_planes(
-        plane_center, 
-        plane_normal, 
-        plane_radii, 
-        plane_rot_q, 
-        epoch=-1, 
-        suffix='tmp_NG', 
-        out_path=net.planarSplat.plot_dir, 
-        plane_id=plane_ins_id_new, 
-        color_type='prim')
-    '''
 
     ## check cc
+    # CC almost certainly means Connected Components
     pts_ins_assignment_masked_NG_cc = torch.zeros_like(pts_ins_assignment_masked_NG)
     NG_ids = pts_ins_assignment_masked_NG.unique()
     for ngid in NG_ids:         
@@ -97,37 +94,14 @@ def merge_plane(
         pts_ins_assignment_masked_tmp = get_continues_pts_ins_assignment(pts_ins_assignment_masked_tmp).int()
         pts_ins_assignment_masked_tmp_cc = check_cc(
             pts_updated, # S, 3
-            # pts_original, # S, 3
-            pts_normal_updated, # S, 3
-            # pts_normal_original, # S, 3
             pts_ins_assignment_masked_tmp, # S
-            floor_height=floor_height,
-            ceiling_height=ceiling_height,
             adj_ratio_threshold=0.0, 
             adj_count_threshold=5,
             voxel_size=voxel_size,
-            fc_adj_ratio_threshold=0.0, 
-            fc_adj_count_threshold=5,
-            fc_voxel_size=fc_voxel_size,
-            find_fc_normal_angle_thresh=find_fc_normal_angle_thresh,
         )
         last_id = pts_ins_assignment_masked_NG_cc.max() + 1
         pts_ins_assignment_masked_NG_cc[gmask] = pts_ins_assignment_masked_tmp_cc[gmask] + last_id
     pts_ins_assignment_masked_NG_cc= get_continues_pts_ins_assignment(pts_ins_assignment_masked_NG_cc).int()
-
-    '''
-    plane_ins_id_new = get_planeInsId_from_ptsInsAssignment(plane_normal.shape[0], pts_ins_assignment_original, pts_ins_assignment_masked_NG_cc)
-    plot_rectangle_planes(
-        plane_center, 
-        plane_normal, 
-        plane_radii, 
-        plane_rot_q, 
-        epoch=-1, 
-        suffix='tmp_NG_cc', 
-        out_path=net.planarSplat.plot_dir, 
-        plane_id=plane_ins_id_new, 
-        color_type='prim')
-    '''
 
     ## check distdance
     pts_ins_assignment_masked_tmp = torch.zeros_like(pts_ins_assignment_masked)
@@ -149,40 +123,19 @@ def merge_plane(
     pts_ins_assignment_masked_NG_cc_DG = get_continues_pts_ins_assignment(pts_ins_assignment_masked_tmp).int()
 
     ## merge floor again
-    pts_ins_assignment_masked_NG_cc_DG_mf = merge_fc_plane(
+    pts_ins_assignment_masked_NG_cc_DG_mf = merge_coplanar(
         pts_updated, # S, 3
         pts_normal_updated, # S, 3
         pts_ins_assignment_masked_NG_cc_DG, # S
-        fc_normal_angle_thresh=fc_normal_angle_thresh,
-        fc_dist_thresh=fc_dist_thresh,
-        find_fc_normal_angle_thresh=find_fc_normal_angle_thresh,
-        floor_height=floor_height,
-        ceiling_height=-1,
-        fc_adj_ratio_threshold=0., 
-        fc_adj_count_threshold=1,
-        fc_voxel_size=fc_voxel_size
+        voxel_size=voxel_size,
+        normal_angle_thresh=normal_angle_thresh,
+        dist_thresh=dist_thresh
     )
     pts_ins_assignment_masked_NG_cc_DG_mf = get_continues_pts_ins_assignment(pts_ins_assignment_masked_NG_cc_DG_mf).int()
-
-    '''
-    plane_ins_id_new = get_planeInsId_from_ptsInsAssignment(plane_normal.shape[0], pts_ins_assignment_original, pts_ins_assignment_masked_NG_cc_DG_mf)
-    plot_rectangle_planes(
-        plane_center, 
-        plane_normal, 
-        plane_radii, 
-        plane_rot_q, 
-        epoch=-1, 
-        suffix='tmp_NG_cc_DG_mf', 
-        out_path=net.planarSplat.plot_dir, 
-        plane_id=plane_ins_id_new, 
-        color_type='prim')
-    '''
-
     pts_ins_assignment_final = pts_ins_assignment_masked_NG_cc_DG_mf.clone()
-    ''''''
+
     ## move points onto plane
     pts_updated = move_pts_onto_plane_simple(pts_updated.clone(), pts_normal_updated, pts_ins_assignment_final)
-    ''''''
 
     ## remove small planes
     min_ins_pts = min_pts_num
@@ -190,7 +143,7 @@ def merge_plane(
     for label in pts_ins_assignment_final.unique():
         if label == 0:
             continue
-        mask = pts_ins_assignment_final == label
+        mask = pts_ins_assignment_final == label    # binary mask
         if mask.sum() < min_ins_pts:
             pts_ins_assignment_final[mask] = 0
         else:
@@ -212,60 +165,102 @@ def merge_plane(
         pts_ins_assignment_final = pts_ins_assignment_final_tmp.clone()
         pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
 
-    ''''''
     plane_ins_id_new = get_planeInsId_from_ptsInsAssignment(plane_normal.shape[0], pts_ins_assignment_original, pts_ins_assignment_final)
-    # plot_rectangle_planes(
-    #     plane_center, 
-    #     plane_normal, 
-    #     plane_radii, 
-    #     plane_rot_q, 
-    #     epoch=-1, 
-    #     suffix='tmp_final', 
-    #     out_path=net.planarSplat.plot_dir, 
-    #     plane_id=plane_ins_id_new, 
-    #     color_type='prim')
-    ''''''
-
     planar_mesh, mesh_pts = build_planar_mesh_for_eval(
         pts_updated, 
         pts_normal_updated, 
         pts_ins_assignment_final, 
         faces_original, 
-        return_pts=True)
+        return_pts=True
+    )
     
     return planar_mesh, plane_ins_id_new
 
-def merge_fc_plane(
-    pts, # S, 3
-    pts_normal, # S, 3
-    pts_ins_assignment_masked, # S
-    fc_normal_angle_thresh=25,
-    fc_dist_thresh=0.20,
-    find_fc_normal_angle_thresh=25,
-    floor_height=0.2,
-    ceiling_height=2.0,
-    fc_adj_ratio_threshold=0., 
-    fc_adj_count_threshold=1,
-    fc_voxel_size=0.1
+def mask_points_in_bg(
+    pts_world,
+    pts_ins_assignment,
+    view_info_list,
+    H,
+    W,
+    max_bg_ratio=0.4
 ):
-    normal_cos_thresh = math.cos(15/180.*np.pi)
-    dist_thresh = 0.05
-    voxel_size = 0.02
+    with torch.no_grad():
+        device = pts_world.device
+        keep_label = pts_ins_assignment.clone()
 
-    fc_normal_cos_thresh = math.cos(fc_normal_angle_thresh/180.*np.pi)
-    find_fc_normal_cos_thresh = math.cos(find_fc_normal_angle_thresh/180.*np.pi)
+        valid_pts = keep_label > 0
+        if valid_pts.sum() == 0:
+            return keep_label
+
+        pts = pts_world
+        ones = torch.ones((pts.shape[0], 1), device=device, dtype=pts.dtype)
+        pts_h = torch.cat([pts, ones], dim=1)  # S,4
+
+        visible_count = torch.zeros((pts.shape[0],), device=device, dtype=torch.float32)
+        bg_count = torch.zeros((pts.shape[0],), device=device, dtype=torch.float32)
+
+        for view_info in view_info_list:
+            # pose is c2w, so inverse gives w2c
+            w2c = torch.inverse(view_info.pose)  # 4,4
+            K = view_info.intrinsic[:3, :3]      # 3,3
+
+            cam = (pts_h @ w2c.T)[:, :3]  # S,3
+            z = cam[:, 2]
+            z_ok = z > 1e-6
+
+            x = cam[:, 0]
+            y = cam[:, 1]
+
+            u = (K[0, 0] * (x / (z + 1e-8)) + K[0, 2]).round().long()
+            vv = (K[1, 1] * (y / (z + 1e-8)) + K[1, 2]).round().long()
+
+            in_img = (u >= 0) & (u < W) & (vv >= 0) & (vv < H)
+
+            # Observed in image
+            obs = z_ok & in_img & valid_pts
+            # Unseen but in front of camera and out of frame
+            oof = z_ok & (~in_img) & valid_pts
+
+            if (obs.sum() == 0) and (oof.sum() == 0):
+                continue
+
+            if obs.sum() > 0:
+                fg_map = view_info.fg_mask.view(H, W).bool()
+                is_bg = ~fg_map[vv[obs], u[obs]]
+
+                obs_idx = torch.where(obs)[0]
+                visible_count[obs_idx] += 1.0
+                bg_count[obs_idx] += is_bg.float()
+
+        bg_ratio = bg_count / (visible_count + 1e-6)
+        remove = valid_pts & (bg_ratio > max_bg_ratio)
+        keep_label[remove] = 0
+
+        logger.info(
+            f"bg-depth point mask removed {int(remove.sum().item())} points "
+            f"({int(valid_pts.sum().item())} valid before)"
+        )
+        return keep_label
+
+def merge_coplanar(
+    pts, 
+    pts_normal, 
+    pts_ins_assignment_masked,
+    normal_angle_thresh: float=15,
+    dist_thresh: float=0.05,
+    voxel_size: float=0.02
+):
+    normal_cos_thresh = math.cos(normal_angle_thresh / 180.0 * np.pi)
+
     unique_labels = pts_ins_assignment_masked.unique()
+    max_label_num = len(unique_labels) - 1 if unique_labels[0] == 0 else len(unique_labels)
 
-    max_label_num = len(unique_labels)
-    if unique_labels[0] == 0:
-        max_label_num -= 1
     mean_normal = torch.zeros((max_label_num, 3), device="cuda")
     mean_offset = torch.zeros((max_label_num, 1), device="cuda")
-    mean_z = torch.zeros((max_label_num, 1), device="cuda")
-    mean_proj_dist = torch.ones((max_label_num, max_label_num), device="cuda") * 100.
+    mean_proj_dist = torch.ones((max_label_num, max_label_num), device="cuda") * 100.0
+
     used_labels = []
     pts_list = []
-    pts_num = []
 
     count = 0
     for label in tqdm(unique_labels, total=len(unique_labels)):
@@ -274,35 +269,22 @@ def merge_fc_plane(
         mask = pts_ins_assignment_masked == label
         assert mask.sum() > 0
         used_labels.append(label)
-        # compute plane parameters and move all points onto the plane
+
         plane_pts = pts[mask]
         plane_normal = torch.median(pts_normal[mask], dim=0)[0]
-        # plane_normal = torch.mean(original_normals_array[mask], dim=0)
         normal = plane_normal / (torch.norm(plane_normal) + 1e-10)
-
-        # offset = -torch.median((plane_points * normal[None, :]).sum(-1), dim=0)[0]
         offset = -torch.mean((plane_pts * normal[None, :]).sum(-1), dim=0)
-
-        z = torch.mean(plane_pts, dim=0)[-1]
 
         mean_normal[count] = normal
         mean_offset[count] = offset
-        mean_z[count] = z
-
         pts_list.append(plane_pts.clone())
-        pts_num.append(mask.sum())
-
         count += 1
-    
+
     assert len(used_labels) == count
     if count == 1:
-        pts_ins_assignment_masked_updated = torch.zeros_like(pts_ins_assignment_masked)
-        pts_ins_assignment_masked_updated[pts_ins_assignment_masked==used_labels[0]] = 1
-        return pts_ins_assignment_masked_updated
-    try:
-        pts_num = torch.stack(pts_num).squeeze()
-    except:
-        import pdb; pdb.set_trace()
+        out = torch.zeros_like(pts_ins_assignment_masked)
+        out[pts_ins_assignment_masked == used_labels[0]] = 1
+        return out
 
     count = 0
     for label in tqdm(unique_labels, total=len(unique_labels)):
@@ -310,147 +292,40 @@ def merge_fc_plane(
             continue
         mask = pts_ins_assignment_masked == label
         assert mask.sum() > 0
-        # compute plane parameters and move all points onto the plane
         plane_pts = pts[mask]
-
         dist = (plane_pts.reshape(1, -1, 3) * mean_normal.reshape(-1, 1, 3)).sum(-1) + mean_offset.reshape(-1, 1)
-        m_dist = dist.abs().mean(dim=-1)
-        mean_proj_dist[count] = m_dist
+        mean_proj_dist[count] = dist.abs().mean(dim=-1)
         count += 1
 
-    assert len(used_labels) == count
-    
-    # calculate normal diff and dist diff
-    normal_diff_nxn = (mean_normal[None, :] * mean_normal[:, None]).sum(2)
-    proj_dist_diff_nxn = mean_proj_dist
-
-    # calculate normal and dist mask
-    normal_mask_nxn = ((normal_diff_nxn > normal_cos_thresh))
+    normal_mask_nxn = (mean_normal[None, :] * mean_normal[:, None]).sum(2) > normal_cos_thresh
     normal_mask_nxn = normal_mask_nxn | normal_mask_nxn.t()
-    dist_mask_nxn = (proj_dist_diff_nxn < dist_thresh)
+
+    dist_mask_nxn = mean_proj_dist < dist_thresh
     dist_mask_nxn = dist_mask_nxn | dist_mask_nxn.t()
 
-    # calculate overlap mask
-    adj_mask_nxn = calculate_adj_mask(pts_list, adj_ratio_threshold=0, adj_count_threshold=1, voxel_size=voxel_size)
+    adj_mask_nxn = calculate_adj_mask(
+        pts_list, 
+        adj_ratio_threshold=0, 
+        adj_count_threshold=1, 
+        voxel_size=voxel_size
+    )
     adj_mask_nxn = adj_mask_nxn | adj_mask_nxn.t()
-
-    adj_mask_nxn_fc = calculate_adj_mask(pts_list, fc_adj_ratio_threshold, fc_adj_count_threshold, fc_voxel_size)
-    adj_mask_nxn_fc = adj_mask_nxn_fc | adj_mask_nxn_fc.t()
-
-    device = normal_diff_nxn.device
-    mean_z = mean_z.squeeze()
-    vec_z = torch.tensor([0,0,1]).to(device).reshape(-1, 3) * mean_z.reshape(-1, 1)  # n, 3
-
-    if floor_height > 0:
-        # get floor mask coarse
-        floor_normal = torch.tensor([0,0,1]).to(device)
-        floor_normal_diff = (mean_normal * floor_normal.reshape(1, 3)).sum(dim=-1)
-        floor_normal_mask =  floor_normal_diff > find_fc_normal_cos_thresh
-
-        if floor_normal_mask.sum() < 10:
-            floor_mask = torch.zeros_like(floor_normal_mask)
-        else:
-            min_z = mean_z[floor_normal_mask].min().cpu().item()
-            for i in range(10):
-                floor_z_mask = mean_z < min_z + floor_height + 0.01 * i
-                floor_mask = floor_normal_mask & floor_z_mask
-                if floor_mask.sum() > 10:
-                    break
-        if floor_mask.sum() > 10:
-            floor_min_z = mean_z[floor_mask].min().cpu().item()
-            # floor_min_z = mean_z[floor_mask].mean().cpu().item()
-
-            # get floor mask fine
-            ## calculate new floor normal
-            floor_prim_weight = pts_num[floor_mask] / pts_num[floor_mask].sum()
-            floor_normal = F.normalize((mean_normal[floor_mask] * floor_prim_weight.reshape(-1, 1)).sum(dim=0), dim=-1)
-            ## calculate new floor normal mask
-            floor_normal_diff = (mean_normal * floor_normal.reshape(1, 3)).sum(dim=-1)
-            floor_normal_mask =  floor_normal_diff > find_fc_normal_cos_thresh
-            ## we should align z to new floor normal !!!
-            mean_z_fn_adjusted = (vec_z * floor_normal.reshape(1, 3)).sum(dim=-1)
-            floor_min_z_fn_adjusted = (torch.tensor([0,0,floor_min_z]).to(device).reshape(1, 3) * floor_normal.reshape(1, 3)).sum(dim=-1).cpu().item()
-            ## calculate new floor z mask
-            # floor_z_mask = mean_z < floor_min_z + floor_height
-            floor_z_mask = mean_z_fn_adjusted < floor_min_z_fn_adjusted + floor_height
-            ## get pairwise floor mask
-            floor_mask = floor_normal_mask & floor_z_mask
-            floor_mask_nxn = (floor_mask[None, :] * floor_mask[:, None])
-
-            # update normal mask
-            floor_mask_pad = floor_mask[:, None].repeat(1, floor_mask.shape[0])
-            normal_mask_nxn[floor_mask_pad] = 0
-            normal_mask_nxn = normal_mask_nxn & normal_mask_nxn.t()  # !
-            normal_mask_nxn[floor_mask_nxn] = (normal_diff_nxn[floor_mask_nxn] > fc_normal_cos_thresh)
-            # check update dist mask
-            dist_mask_nxn[floor_mask_pad] = 0
-            dist_mask_nxn = dist_mask_nxn & dist_mask_nxn.t()
-            dist_mask_nxn[floor_mask_nxn] = (proj_dist_diff_nxn[floor_mask_nxn] < fc_dist_thresh)
-            # TODO: check update adj mask
-            adj_mask_nxn[floor_mask_pad] = 0  # to check
-            adj_mask_nxn= adj_mask_nxn & adj_mask_nxn.t()
-            # adj_mask_nxn[floor_mask_nxn] = 1
-            adj_mask_nxn[floor_mask_nxn] = adj_mask_nxn_fc[floor_mask_nxn]
-
-            if ceiling_height > 0:
-                assert ceiling_height > floor_height
-                # get ceiling mask coarse
-                logger.warning("We assume that the ceiling is horizontal!")
-                ceiling_normal = torch.tensor([0,0,-1]).to(device)
-                ceiling_normal_diff = (mean_normal * ceiling_normal.reshape(1, 3)).sum(dim=-1)
-                ceiling_normal_mask =  ceiling_normal_diff > find_fc_normal_cos_thresh
-                ## use adjusted z
-                ceiling_z_mask = mean_z_fn_adjusted > floor_min_z_fn_adjusted + ceiling_height
-                ceiling_mask = ceiling_normal_mask & ceiling_z_mask
-
-                if ceiling_mask.sum() > 0:
-                    # get ceiling mask fine
-                    ## calculate new ceiling normal
-                    ceiling_prim_weight = pts_num[ceiling_mask] / pts_num[ceiling_mask].sum()
-                    ceiling_normal = F.normalize((mean_normal[ceiling_mask] * ceiling_prim_weight.reshape(-1, 1)).sum(dim=0), dim=-1)
-                    ## calculate new ceiling normal mask
-                    ceiling_normal_diff = (mean_normal * ceiling_normal.reshape(1, 3)).sum(dim=-1)
-                    ceiling_normal_mask =  ceiling_normal_diff > find_fc_normal_cos_thresh
-                    ## get pairwise ceiling mask
-                    ## we use the coarse ceiling z mask
-                    ceiling_mask = ceiling_normal_mask & ceiling_z_mask
-                    ceiling_mask_nxn = (ceiling_mask[None, :] * ceiling_mask[:, None])
-                    assert (floor_mask_nxn * ceiling_mask_nxn).sum() == 0
-
-                    # update normal mask
-                    ceiling_mask_pad = ceiling_mask[:, None].repeat(1, ceiling_mask.shape[0])
-                    normal_mask_nxn[ceiling_mask_pad] = 0
-                    normal_mask_nxn = normal_mask_nxn & normal_mask_nxn.t()  # !
-                    normal_mask_nxn[ceiling_mask_nxn] = (normal_diff_nxn[ceiling_mask_nxn] > fc_normal_cos_thresh)
-                    # update dist mask
-                    dist_mask_nxn[ceiling_mask_pad] = 0
-                    dist_mask_nxn = dist_mask_nxn & dist_mask_nxn.t()
-                    dist_mask_nxn[ceiling_mask_nxn] = (proj_dist_diff_nxn[ceiling_mask_nxn] < fc_dist_thresh)
-                    # TODO: check update adj mask
-                    adj_mask_nxn[ceiling_mask_pad] = 0  # to check
-                    adj_mask_nxn= adj_mask_nxn & adj_mask_nxn.t()
-                    # adj_mask_nxn[ceiling_mask_nxn] = 1
-                    adj_mask_nxn[ceiling_mask_nxn] = adj_mask_nxn_fc[ceiling_mask_nxn]
 
     final_mask = adj_mask_nxn & dist_mask_nxn & normal_mask_nxn
     final_mask.fill_diagonal_(True)
 
     merged_groups = gpu_merge_overlapped_planes(final_mask)
 
-    # update pts_ins_id and plane_ins_id
-    pts_ins_assignment_masked_updated = torch.zeros_like(pts_ins_assignment_masked)
+    out = torch.zeros_like(pts_ins_assignment_masked)
     used_labels = torch.stack(used_labels).squeeze()
     new_ins_id = 1
     for group in merged_groups:
         group = torch.tensor(group).long()
-        try:
-            cur_labels = used_labels[group]
-        except:
-            import pdb; pdb.set_trace()
+        cur_labels = used_labels[group]
         for old_ins_id in cur_labels:
-            pts_ins_assignment_masked_updated[pts_ins_assignment_masked==old_ins_id] = new_ins_id
+            out[pts_ins_assignment_masked == old_ins_id] = new_ins_id
         new_ins_id += 1
-    return pts_ins_assignment_masked_updated
+    return out
 
 def find_best_assignments_for_each_group(group_id, pts_tensor, pts_normal_tensor, pts_group_assignment_tensor, pts_primitive_assignment_tensor, start_ins_id, dist_thres=0.1):
     pts_group_assignment_tensor = pts_group_assignment_tensor.clone()
@@ -506,51 +381,58 @@ def find_best_assignments_for_each_group(group_id, pts_tensor, pts_normal_tensor
     return pts_ins_assignment_tensor
 
 def build_planar_mesh_for_eval(pts, pts_normal, pts_ins_assignment, faces, move_pts_on=True, return_pts=False):
+    import trimesh
     # ------------------------------------------------------------------- build planar mesh
     pts_ins_assignment_np = pts_ins_assignment.cpu().numpy()
     faces = faces.cpu().numpy()
     color_vis = random_color(np.unique(pts_ins_assignment_np).max().item()+100)
     colorMap_vis = color_vis(np.unique(pts_ins_assignment_np).max().item()+10)
-    pts_color = colorMap_vis[pts_ins_assignment_np] / 255.
-    triangle_mesh = o3d.geometry.TriangleMesh()
-    triangle_mesh.vertices = o3d.utility.Vector3dVector(pts.cpu().numpy())
-    triangle_mesh.vertex_colors = o3d.utility.Vector3dVector(pts_color)
-    triangle_mesh.triangles = o3d.utility.Vector3iVector(faces)
+
     # -------------------------------------------------------------------- label non-plane faces
     face_ass = pts_ins_assignment_np[faces.reshape(-1)].reshape(-1, 3)
     face_invalid_mask = (face_ass[:,0] == 0).astype(np.int64) + (face_ass[:,1] == 0).astype(np.int64) + (face_ass[:,2] == 0).astype(np.int64)
-    # face_invalid_mask = face_invalid_mask > 0
     face_invalid_mask = face_invalid_mask == 3
-    face_id = np.arange(faces.shape[0])
-    removed_face_id = face_id[face_invalid_mask]
+
     # -------------------------------------------------------------------- update pts color
     face_max_ass = face_ass.max(axis=-1).reshape(-1, 1)
     face_max_ass = np.repeat(face_max_ass, 3, axis=-1)
     pts_ins_assignment_np[faces[~face_invalid_mask]] = face_max_ass[~face_invalid_mask]
-    color_vis = random_color(np.unique(pts_ins_assignment_np).max().item()+100)
-    colorMap_vis = color_vis(np.unique(pts_ins_assignment_np).max().item()+10)
-    pts_color = colorMap_vis[pts_ins_assignment_np] / 255.
-    triangle_mesh.vertex_colors = o3d.utility.Vector3dVector(pts_color)    
-    # # -------------------------------------------------------------------- move points
+    pts_color = (colorMap_vis[pts_ins_assignment_np]).astype(np.uint8)
+
+    # -------------------------------------------------------------------- move points
     if move_pts_on:
         pts_ins_assignment_tensor = torch.from_numpy(pts_ins_assignment_np).cuda()
         pts_plane = move_pts_onto_plane_simple(pts.clone(), pts_normal, pts_ins_assignment_tensor)
-        triangle_mesh.vertices = o3d.utility.Vector3dVector(pts_plane.cpu().numpy())
+        vertices = pts_plane.cpu().numpy()
     else:
+        vertices = pts.cpu().numpy()
         pts_plane = pts
         logger.warning("using original points....")
+
+    # -------------------------------------------------------------------- convert to trimesh
+    normals_np = pts_normal.cpu().numpy().astype(np.float32)
+    mesh = trimesh.Trimesh(
+        vertices=vertices, 
+        faces=faces, 
+        vertex_colors=pts_color,
+        vertex_attributes={
+            'pts_ins_assignment': pts_ins_assignment_np,
+            'nx': normals_np[:, 0],
+            'ny': normals_np[:, 1],
+            'nz': normals_np[:, 2],
+        },
+        process=False
+    )
+    
     # -------------------------------------------------------------------- remove non-plane faces
-    # logger.warning("showing all faces for debug")
-    triangle_mesh.remove_triangles_by_index(removed_face_id)
-    triangle_mesh.remove_duplicated_triangles()
-    triangle_mesh.remove_duplicated_vertices()
-    triangle_mesh.remove_unreferenced_vertices()
+    mesh.update_faces(~face_invalid_mask)
+    mesh.remove_unreferenced_vertices()
 
     if return_pts:
-        return triangle_mesh, pts_plane
+        return mesh, pts_plane
     else:
-        return triangle_mesh
-
+        return mesh
+    
 class random_color(object):
     def __init__(self, color_num=10000):
         num_of_colors=color_num
@@ -622,181 +504,72 @@ def calculate_adj_mask(points_list, adj_ratio_threshold=0.05, adj_count_threshol
     return adj_matrix.to(torch.bool)
 
 def check_cc(
-    pts, # S, 3
-    pts_normal, # S, 3
-    pts_ins_assignment_masked, # S
-    find_fc_normal_angle_thresh=25,
-    floor_height=0.2,
-    ceiling_height=2.0,
-    adj_ratio_threshold=0.05, 
+    pts,  # S, 3
+    pts_ins_assignment_masked,  # S
+    adj_ratio_threshold=0.05,
     adj_count_threshold=10,
     voxel_size=0.1,
-    fc_adj_ratio_threshold=0.0, 
-    fc_adj_count_threshold=1,
-    fc_voxel_size=0.1
 ):
-    find_fc_normal_cos_thresh = math.cos(find_fc_normal_angle_thresh/180.*np.pi)
-
+    """
+    Split labels into connected components using voxel-overlap adjacency only.
+    Returns relabeled per-point assignments (0 stays non-plane).
+    """
     unique_labels = pts_ins_assignment_masked.unique()
 
-    ## all labels should be coutinuous and start from 0 or 1
+    # labels should be continuous and start from 0 or 1
     if unique_labels[0] == 0:
-        assert unique_labels[-1] == len(unique_labels)-1
+        assert unique_labels[-1] == len(unique_labels) - 1
     else:
         assert unique_labels[-1] == len(unique_labels)
 
-    ## get number of valid labels
-    max_label_num = len(unique_labels)
-    if unique_labels[0] == 0:
-        max_label_num -= 1
-    
-    mean_normal = torch.zeros((max_label_num, 3), device="cuda")
-    mean_z = torch.zeros((max_label_num, 1), device="cuda")
     used_labels = []
     pts_list = []
-    pts_num = []
 
-    count = 0
-    # for label in tqdm(unique_labels, total=len(unique_labels)):
     for label in unique_labels:
         if label == 0:
             continue
         mask = pts_ins_assignment_masked == label
         assert mask.sum() > 0
         used_labels.append(label)
-        # compute plane parameters and move all points onto the plane
-        plane_pts = pts[mask]
+        pts_list.append(pts[mask].clone())
 
-        plane_normal = torch.median(pts_normal[mask], dim=0)[0]
-        # plane_normal = torch.mean(original_normals_array[mask], dim=0)
+    count = len(used_labels)
 
-        normal = plane_normal / (torch.norm(plane_normal) + 1e-10)
+    # nothing to merge
+    if count == 0:
+        return torch.zeros_like(pts_ins_assignment_masked)
 
-        z = torch.mean(plane_pts, dim=0)[-1]
-
-        mean_normal[count] = normal
-        mean_z[count] = z
-
-        pts_list.append(plane_pts.clone())
-        pts_num.append(mask.sum())
-
-        count += 1
-    
-    assert len(used_labels) == count
     if count == 1:
-        pts_ins_assignment_masked_updated = torch.zeros_like(pts_ins_assignment_masked)
-        pts_ins_assignment_masked_updated[pts_ins_assignment_masked==used_labels[0]] = 1
-        return pts_ins_assignment_masked_updated
+        out = torch.zeros_like(pts_ins_assignment_masked)
+        out[pts_ins_assignment_masked == used_labels[0]] = 1
+        return out
 
-    pts_num = torch.stack(pts_num).squeeze()
-
-    # calculate overlap mask
-    adj_mask_nxn = calculate_adj_mask(pts_list, adj_ratio_threshold, adj_count_threshold, voxel_size)
+    # overlap-based adjacency graph
+    adj_mask_nxn = calculate_adj_mask(
+        pts_list,
+        adj_ratio_threshold=adj_ratio_threshold,
+        adj_count_threshold=adj_count_threshold,
+        voxel_size=voxel_size,
+    )
     adj_mask_nxn = adj_mask_nxn | adj_mask_nxn.t()
-    adj_mask_nxn_fc = calculate_adj_mask(pts_list, fc_adj_ratio_threshold, fc_adj_count_threshold, fc_voxel_size)
-    adj_mask_nxn_fc = adj_mask_nxn_fc | adj_mask_nxn_fc.t()
-    
-    mean_z = mean_z.squeeze()
-    vec_z = torch.tensor([0,0,1]).cuda().reshape(-1, 3) * mean_z.reshape(-1, 1)  # n, 3
-
-    if floor_height > 0:
-        # get floor mask coarse
-        floor_normal = torch.tensor([0,0,1]).cuda()
-        floor_normal_diff = (mean_normal * floor_normal.reshape(1, 3)).sum(dim=-1)
-        floor_normal_mask =  floor_normal_diff > find_fc_normal_cos_thresh
-
-        if floor_normal_mask.sum() < 10:
-            floor_mask = torch.zeros_like(floor_normal_mask)
-        else:
-            min_z = mean_z[floor_normal_mask].min().cpu().item()
-            for i in range(10):
-                floor_z_mask = mean_z < min_z + floor_height + 0.01 * i
-                floor_mask = floor_normal_mask & floor_z_mask
-                if floor_mask.sum() > 10:
-                    break
-
-        if floor_mask.sum() > 10:
-            floor_min_z = mean_z[floor_mask].min().cpu().item()
-            logger.info("floor height = %d"%(floor_min_z))
-            # floor_min_z = mean_z[floor_mask].mean().cpu().item()
-
-            # get floor mask fine
-            ## calculate new floor normal
-            floor_prim_weight = pts_num[floor_mask] / pts_num[floor_mask].sum()
-            floor_normal = F.normalize((mean_normal[floor_mask] * floor_prim_weight.reshape(-1, 1)).sum(dim=0), dim=-1)
-            ## calculate new floor normal mask
-            floor_normal_diff = (mean_normal * floor_normal.reshape(1, 3)).sum(dim=-1)
-            floor_normal_mask =  floor_normal_diff > find_fc_normal_cos_thresh
-            ## we should align z to new floor normal !!!
-            mean_z_fn_adjusted = (vec_z * floor_normal.reshape(1, 3)).sum(dim=-1)
-            floor_min_z_fn_adjusted = (torch.tensor([0,0,floor_min_z]).cuda().reshape(1, 3) * floor_normal.reshape(1, 3)).sum(dim=-1).cpu().item()
-            ## calculate new floor z mask
-            # floor_z_mask = mean_z < floor_min_z + floor_height
-            floor_z_mask = mean_z_fn_adjusted < floor_min_z_fn_adjusted + floor_height
-            ## get pairwise floor mask
-            floor_mask = floor_normal_mask & floor_z_mask
-            floor_mask_nxn = (floor_mask[None, :] * floor_mask[:, None])
-
-            # update adj mask
-            floor_mask_pad = floor_mask[:, None].repeat(1, floor_mask.shape[0])
-            adj_mask_nxn[floor_mask_pad] = 0  # to check
-            adj_mask_nxn= adj_mask_nxn & adj_mask_nxn.t()
-            # adj_mask_nxn[floor_mask_nxn] = 1
-            adj_mask_nxn[floor_mask_nxn] = adj_mask_nxn_fc[floor_mask_nxn]
-
-            if ceiling_height > 0:
-                assert ceiling_height > floor_height
-                # get ceiling mask coarse
-                logger.warning("We assume that the ceiling is horizontal!")
-                ceiling_normal = torch.tensor([0,0,-1]).cuda()
-                ceiling_normal_diff = (mean_normal * ceiling_normal.reshape(1, 3)).sum(dim=-1)
-                ceiling_normal_mask =  ceiling_normal_diff > find_fc_normal_cos_thresh
-                ## use adjusted z
-                ceiling_z_mask = mean_z_fn_adjusted > floor_min_z_fn_adjusted + ceiling_height
-                ceiling_mask = ceiling_normal_mask & ceiling_z_mask
-
-                logger.info("ceiling height = %d"%(floor_min_z_fn_adjusted + ceiling_height))
-
-                if ceiling_mask.sum() > 0:
-                    # get ceiling mask fine
-                    ## calculate new ceiling normal
-                    ceiling_prim_weight = pts_num[ceiling_mask] / pts_num[ceiling_mask].sum()
-                    ceiling_normal = F.normalize((mean_normal[ceiling_mask] * ceiling_prim_weight.reshape(-1, 1)).sum(dim=0), dim=-1)
-                    ## calculate new ceiling normal mask
-                    ceiling_normal_diff = (mean_normal * ceiling_normal.reshape(1, 3)).sum(dim=-1)
-                    ceiling_normal_mask =  ceiling_normal_diff > find_fc_normal_cos_thresh
-                    ## get pairwise ceiling mask
-                    ## we use the coarse ceiling z mask
-                    ceiling_mask = ceiling_normal_mask & ceiling_z_mask
-                    ceiling_mask_nxn = (ceiling_mask[None, :] * ceiling_mask[:, None])
-                    assert (floor_mask_nxn * ceiling_mask_nxn).sum() == 0
-
-                    # update adj mask
-                    ceiling_mask_pad = ceiling_mask[:, None].repeat(1, ceiling_mask.shape[0])
-                    adj_mask_nxn[ceiling_mask_pad] = 0  # to check
-                    adj_mask_nxn= adj_mask_nxn & adj_mask_nxn.t()
-                    # adj_mask_nxn[ceiling_mask_nxn] = 1
-                    adj_mask_nxn[ceiling_mask_nxn] = adj_mask_nxn_fc[ceiling_mask_nxn]
 
     final_mask = adj_mask_nxn
     final_mask.fill_diagonal_(True)
 
     merged_groups = gpu_merge_overlapped_planes(final_mask)
 
-    # update pts_ins_id and plane_ins_id
-    pts_ins_assignment_masked_updated = torch.zeros_like(pts_ins_assignment_masked)
+    # map connected components back to original labels
+    out = torch.zeros_like(pts_ins_assignment_masked)
     used_labels = torch.stack(used_labels).squeeze()
     new_ins_id = 1
     for group in merged_groups:
-        group = torch.tensor(group).long()
-        try:
-            cur_labels = used_labels[group]
-        except:
-            import pdb; pdb.set_trace()
+        group = torch.tensor(group, device=used_labels.device).long()
+        cur_labels = used_labels[group]
         for old_ins_id in cur_labels:
-            pts_ins_assignment_masked_updated[pts_ins_assignment_masked==old_ins_id] = new_ins_id
+            out[pts_ins_assignment_masked == old_ins_id] = new_ins_id
         new_ins_id += 1
-    return pts_ins_assignment_masked_updated
+
+    return out
 
 def gpu_merge_overlapped_planes(M):
     M = M | M.t()
@@ -947,17 +720,33 @@ def get_continues_pts_ins_assignment(pts_plane_assignment):
     # assert pts_plane_assignment_new.min() > 0
     return pts_plane_assignment_new
 
+# def calculate_pts2mesh_dist(pts, coarse_mesh_o3d):
+#     mesh_vertices = torch.from_numpy(np.array(coarse_mesh_o3d.vertices)).to(pts.device).float()
+    
+#     pts_batch = pts.unsqueeze(0)  # (1, N, 3)
+#     mesh_batch = mesh_vertices.unsqueeze(0)  # (1, M, 3)
+    
+#     dists, idx, _ = knn_points(pts_batch, mesh_batch, K=1)
+    
+#     pts_dist2mesh_tensor = torch.sqrt(dists.squeeze(-1).squeeze(0))
+    
+#     return pts_dist2mesh_tensor
+
 def calculate_pts2mesh_dist(pts, coarse_mesh_o3d):
     mesh_vertices = torch.from_numpy(np.array(coarse_mesh_o3d.vertices)).to(pts.device).float()
+    # pts: (N, 3) tensor on GPU
+    # mesh_vertices: (M, 3) tensor on GPU
     
-    pts_batch = pts.unsqueeze(0)  # (1, N, 3)
-    mesh_batch = mesh_vertices.unsqueeze(0)  # (1, M, 3)
+    x_i = LazyTensor(pts[:, None, :])      # (N, 1, 3)
+    y_j = LazyTensor(mesh_vertices[None, :, :]) # (1, M, 3)
     
-    dists, idx, _ = knn_points(pts_batch, mesh_batch, K=1)
+    # Symbolic distance computation (doesn't materialize the large matrix)
+    dist_sq = ((x_i - y_j) ** 2).sum(-1)
     
-    pts_dist2mesh_tensor = torch.sqrt(dists.squeeze(-1).squeeze(0))
+    # Get the minimum squared distance for each point
+    min_dist_sq = dist_sq.min(dim=1).squeeze()
     
-    return pts_dist2mesh_tensor
+    return torch.sqrt(min_dist_sq)
 
 def sample_pts_from_GivenPlanePrim(
         plane_normal, 
@@ -970,6 +759,22 @@ def sample_pts_from_GivenPlanePrim(
     """
     space_resolution=0.05 --> 0.05 meter
     """
+
+    # What will happen if I have space_resolution=0.02 and a (0.01x0.01) plane??
+    # 
+    # With that exact setup, it is treated as a very tiny primitive and 'usually' gets dropped.
+    # With nx, ny computed as:
+    # nx, ny = int(max(2 * rx // sample_interval + 1, 3)), int(max(2 * ry // sample_interval + 1, 3))
+    # Because of max(..., 3), even a tiny plane still gets at least:
+    # nx = 3
+    # ny = 3
+    # total sampled points = 9
+    # 
+    # Then later, small instances are removed if `point count < min_pts_num`
+    # And min_pts_num is forced to be at least:
+    # max((0.1 / 0.02)^2, 25) = 25
+    # So a standalone 0.01 x 0.01 plane (sampled as 9 points) fails 9 < 25 and gets removed.
+
     sample_interval = space_resolution
 
     rot_q = F.normalize(plane_rot_q, dim=-1)  # n, 4

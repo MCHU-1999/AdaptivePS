@@ -151,19 +151,42 @@ def merge_plane(
     logger.info("number of planar instances = %d"%(count))
     pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
 
-    # update
-    if mesh_dist_thresh_2 > mesh_dist_thresh:
-        pts_ins_assignment_final_tmp = torch.zeros_like(pts_ins_assignment_final)
-        for label in pts_ins_assignment_final.unique():
-            if label == 0:
-                continue
+
+    # Bring back ALL points that were masked out (by mesh_dist_thresh or bg trim) and
+    # assign them to the nearest confirmed plane via the plane equation, ignoring the mesh.
+    plane_labels = [l for l in pts_ins_assignment_final.unique().tolist() if l > 0]
+    if len(plane_labels) > 0:
+        # Build plane parameters (normal + offset) for each confirmed plane from already-assigned pts
+        normals_list, offsets_list, labels_list = [], [], []
+        for label in plane_labels:
             mask = pts_ins_assignment_final == label
-            original_ids = pts_ins_assignment_original[mask].unique()
-            for oid in original_ids:
-                mask2 = (pts_ins_assignment_original == oid) & (dist_pts2mesh_original <= mesh_dist_thresh_2)
-                pts_ins_assignment_final_tmp[mask2] = label
-        pts_ins_assignment_final = pts_ins_assignment_final_tmp.clone()
+            plane_pts = pts_updated[mask]          # pts already snapped onto the plane
+            plane_n   = pts_normal_updated[mask]
+            normal = F.normalize(torch.median(plane_n, dim=0)[0], dim=-1)
+            offset = -torch.median((plane_pts * normal[None, :]).sum(-1))
+            normals_list.append(normal)
+            offsets_list.append(offset)
+            labels_list.append(label)
+        normals_stack = torch.stack(normals_list)                                       # P, 3
+        offsets_stack = torch.stack(offsets_list)                                       # P
+        labels_stack  = torch.tensor(labels_list, device=pts_original.device)          # P
+
+        # All currently-unassigned points (masked by mesh_dist_thresh or bg trim)
+        unassigned_mask = pts_ins_assignment_final == 0
+        logger.info(f"bring_back_all_masked: {int(unassigned_mask.sum())} unassigned points to reassign")
+        if unassigned_mask.sum() > 0:
+            unassigned_pts = pts_original[unassigned_mask]                              # N, 3
+            # Point-to-plane absolute distance for every (point, plane) pair: (N, P)
+            dists = (unassigned_pts @ normals_stack.T) + offsets_stack[None, :]        # N, P
+            dists = dists.abs()
+            min_dists, best_plane_idx = dists.min(dim=1)                               # N
+            within_thresh = min_dists < dist_thresh
+            best_labels   = labels_stack[best_plane_idx]                               # N
+            unassigned_indices = torch.where(unassigned_mask)[0]
+            pts_ins_assignment_final[unassigned_indices[within_thresh]] = best_labels[within_thresh]
+            logger.info(f"bring_back_all_masked: reassigned {int(within_thresh.sum())} points")
         pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
+
 
     plane_ins_id_new = get_planeInsId_from_ptsInsAssignment(plane_normal.shape[0], pts_ins_assignment_original, pts_ins_assignment_final)
     planar_mesh, mesh_pts = build_planar_mesh_for_eval(

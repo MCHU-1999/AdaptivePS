@@ -13,7 +13,7 @@ from .net_wrapper import PlanarRecWrapper
 from utils.misc_util import setup_logging, get_train_param, save_config_files, prepare_folders, get_class
 from utils.trainer_util import resume_model, calculate_plane_depth, plot_plane_img, save_checkpoints
 from utils.mesh_util import get_coarse_mesh, remove_mesh_attribute
-from utils.merge_util import merge_plane
+from utils.merge_util_new import merge_plane
 from utils.loss_util import normal_loss, metric_depth_loss
 from utils.model_util import split_planes_xy_via_mask
 
@@ -28,7 +28,8 @@ class PlanarSplatTrainRunner():
         self.train_sink_id = setup_logging(os.path.join(self.expdir, 'train.log'))
         self.loss_sink_id = logger.add(os.path.join(self.expdir, 'loss.log'), format="{time:YYYY-MM-DD HH:mm:ss} | {message}", filter=lambda record: "loss" in record["extra"])
         kwargs['data']['expdir'] = self.expdir
-        
+
+        logger.info(f'\n----- PlanarSplatting running on scene: {self.expname} -----')
         logger.info('Shell command : {0}'.format(' '.join(sys.argv)))
         save_config_files(self.expdir, self.conf)
 
@@ -45,8 +46,9 @@ class PlanarSplatTrainRunner():
         # Parse voxel_length and stuff from dataset config
         self.voxel_length = self.conf.get_float('dataset.voxel_length', default=0.02)
         self.sdf_trunc = self.conf.get_float('dataset.sdf_trunc', default=0.08)
-        self.depth_trunc = self.conf.get_float('dataset.depth_trunc', default=5.0)
         self.max_depth = self.conf.get_float('dataset.max_depth', default=20.0)
+        self.depth_trunc = self.dataset.depth_trunc
+
         logger.info('Data loaded. Frame number = {0}'.format(self.ds_len))
 
         # =======================================  build plane model
@@ -77,6 +79,10 @@ class PlanarSplatTrainRunner():
         self.check_vis_freq_ite = self.conf.get_int('train.check_plane_vis_freq')
         self.data_order = self.conf.get_string('train.data_order')
 
+        # ======================================= ablation settings
+        self.process_mesh = self.conf.get_bool('ablation.process_mesh', True)
+        self.split_n_prune = self.conf.get_bool('ablation.split_n_prune', True)
+
     def run(self):
         try:
             start_time = time.time()
@@ -85,7 +91,7 @@ class PlanarSplatTrainRunner():
             logger.info(f'Training finished in {train_time/60:.2f} minutes.')
             
             start_time = time.time()
-            self.merger()
+            self.merger(debug_output=True)
             merge_time = time.time() - start_time
             logger.info(f'Merging finished in {merge_time/60:.2f} minutes.')
             
@@ -93,7 +99,7 @@ class PlanarSplatTrainRunner():
         except Exception as e:
             logger.error(f"An error occurred: {e}")
             # logger.exception("Full traceback below:")
-            # raise  # Re-raise the exception if you still want the script to exit with an error code
+            # raise
         finally:
             if hasattr(self, 'loss_sink_id'):
                 logger.remove(self.loss_sink_id)
@@ -115,7 +121,7 @@ class PlanarSplatTrainRunner():
 
         view_info_list = None
         calculate_plane_depth(self)
-        
+
         for iter in range(self.start_iter, self.max_total_iters + 1):
             self.iter_step = iter
             # ======================================= process planes
@@ -177,18 +183,26 @@ class PlanarSplatTrainRunner():
                     )
             
             # ======================================= plot model outputs
-            if self.do_vis and iter % self.plot_freq == 0:
-                # do_vis is often False
+            if self.do_vis and iter % self.plot_freq == 0:  # do_vis is often False
                 self.net.regularize_plane_shape()
                 self.net.eval()
                 self.net.planarSplat.draw_plane(epoch=iter)
                 plot_plane_img(self)
                 self.net.train()
             
-            if iter > 0 and iter % self.check_vis_freq_ite == 0:
-                self.check_plane_visibility_cuda()
-        
-        self.check_plane_visibility_cuda()
+            if self.split_n_prune:
+                if iter > self.coarse_stage_ite and iter % self.check_vis_freq_ite == 0:
+                    self.check_plane_visibility_cuda_plus_plus()
+                elif iter > 0 and iter % self.check_vis_freq_ite == 0:
+                    self.check_plane_visibility_cuda()
+            else:
+                if iter % self.check_vis_freq_ite == 0:
+                    self.check_plane_visibility_cuda()
+
+        if self.split_n_prune:
+            self.check_plane_visibility_cuda_plus_plus(lastdog=True)
+        else:
+            self.check_plane_visibility_cuda()
         save_checkpoints(self, iter=self.iter_step, only_latest=False)
 
     def merger(self, save_mesh=True, save_mesh_for_KSR=True, debug_output=False):
@@ -212,7 +226,7 @@ class PlanarSplatTrainRunner():
             voxel_length=self.voxel_length, 
             sdf_trunc=self.sdf_trunc,
             depth_trunc=self.depth_trunc,
-            process_mesh=False
+            process_mesh=self.process_mesh
         )
         if debug_output:
             save_path = os.path.join(save_root, f"ref_mesh.ply")
@@ -250,7 +264,7 @@ class PlanarSplatTrainRunner():
                 )
         else:
             raise ValueError("No merge configuration found!")
-        
+
         if save_mesh_for_KSR:
             save_path = os.path.join(save_root, f"planar_mesh_for_KSR.ply")
             logger.info(f'saving final planar mesh to {save_path}')
@@ -261,7 +275,7 @@ class PlanarSplatTrainRunner():
             save_path = os.path.join(save_root, f"planar_mesh.ply")
             logger.info(f'saving final planar mesh to {save_path}')
             planarSplat_eval_mesh.export(save_path)
-
+        
         return planarSplat_eval_mesh
 
     def check_plane_visibility_cuda(self):   
@@ -298,4 +312,129 @@ class PlanarSplatTrainRunner():
         self.net.optimizer.zero_grad()
         self.net.train()
         self.net.prune_invisible_plane()
+        self.net.planarSplat.draw_plane(epoch=self.iter_step)
+        
+    def check_plane_visibility_cuda_plus_plus(self, debug=True, lastdog=False):
+        """
+        One single plane can be contributing losses in both FG and BG, if we only look at FG/BG individually then
+        we're not really controlling the behavior as we wanted. Here's what we do:
+
+        FG only: normal training.
+        BG only: prune.
+        FG + BG: split.
+        Neither: prune.
+        """
+        EPSILON = 1e-6
+        FG_THRESHOLDING = 0.6
+        COUNTERPART = 0.3
+        MAX_SPLIT_PER_CHECK = 1500
+
+        self.net.regularize_plane_shape(empty_cache=False)
+        logger.info('checking plane visibility (FG/BG split)...')
+        self.net.eval()
+
+        plane_num = self.net.planarSplat.get_plane_num()
+        fg_hit_count = torch.zeros((plane_num, 1), device='cuda')
+        bg_hit_count = torch.zeros((plane_num, 1), device='cuda')
+
+        view_info_list = self.dataset.view_info_list.copy()
+        for _ in tqdm(range(self.ds_len)):
+            view_info = view_info_list.pop(randint(0, len(view_info_list) - 1))
+            raster_cam_w2c = view_info.raster_cam_w2c
+
+            allmap = self.net.planarSplat(view_info, self.iter_step)
+            depth = allmap[0:1].view(-1)
+            normal_local_ = allmap[2:5]
+            normal_global = (normal_local_.permute(1, 2, 0) @ (raster_cam_w2c[:3, :3].T)).view(-1, 3)
+            vis_weight = allmap[1:2].view(-1)
+
+            valid_ray_mask = vis_weight > 1e-5
+            fg_area = view_info.fg_mask
+            fg_mask = valid_ray_mask & fg_area
+            bg_mask = valid_ray_mask & ~fg_area
+
+            # FG pass
+            self.net.optimizer.zero_grad()
+            fg_vis = torch.zeros(plane_num, device='cuda', dtype=torch.bool)
+            if fg_mask.sum() > 0:
+                loss_mono_depth = metric_depth_loss(depth, view_info.mono_depth, fg_mask, max_depth=self.max_depth)
+                loss_normal_l1, loss_normal_cos = normal_loss(normal_global, view_info.mono_normal_global, fg_mask)
+                fg_loss = loss_mono_depth + loss_normal_cos + loss_normal_l1
+                if torch.isfinite(fg_loss):
+                    fg_loss.backward(retain_graph=True)
+                    fg_vis = self.net.planarSplat._plane_center.grad.abs().detach().sum(dim=-1) > 0
+                    fg_hit_count[fg_vis] += 1
+            self.net.optimizer.zero_grad()
+
+            # BG pass
+            bg_vis = torch.zeros(plane_num, device='cuda', dtype=torch.bool)
+            if bg_mask.sum() > 0:
+                bg_loss = vis_weight[bg_mask].mean()
+                if torch.isfinite(bg_loss):
+                    bg_loss.backward()
+                    bg_vis = self.net.planarSplat._plane_center.grad.abs().detach().sum(dim=-1) > 0
+                    bg_hit_count[bg_vis] += 1
+            self.net.optimizer.zero_grad()
+
+        fg_hits = fg_hit_count.squeeze(-1)
+        bg_hits = bg_hit_count.squeeze(-1)
+
+        fg_ratio = fg_hits / (fg_hits + bg_hits + EPSILON)
+        fg_only = (fg_ratio > FG_THRESHOLDING)
+        bg_only = (fg_ratio <= COUNTERPART)
+        ambiguous = (fg_ratio > COUNTERPART) & (fg_ratio <= FG_THRESHOLDING)
+
+        # DEBUG -------------------------------------------------------------------------------
+        if debug:
+            category_id = torch.full((plane_num,), 3, device='cuda', dtype=torch.long)
+            category_id[fg_only] = 0
+            category_id[bg_only] = 1
+            category_id[ambiguous] = 2
+
+            self.net.planarSplat.draw_plane_debug(
+                epoch=self.iter_step,
+                plane_id=category_id,
+                save_mesh=True,
+            )
+        # -------------------------------------------------------------------------------------
+
+
+        logger.info(
+            f'[check_plane_visibility++] FG: {int(fg_only.sum().item())}, '
+            f'BG: {int(bg_only.sum().item())}, Ambiguous: {int(ambiguous.sum().item())}'
+        )
+
+        keep_mask = ~bg_only
+        if bg_only.any():
+            self.net.prune_core(bg_only.detach())
+            logger.info(f'[check_plane_visibility++] removed {int(bg_only.sum().item())} planes')
+
+        if (not lastdog) and ambiguous.any():
+            ambiguous_count = ambiguous.sum().item()
+            
+            if ambiguous_count > MAX_SPLIT_PER_CHECK:
+                # Option 1: Sort by ambiguity (lowest first) and take top-k lowest
+                ambiguity_score = (1 - fg_ratio[ambiguous])
+                _, topk = torch.topk(ambiguity_score, MAX_SPLIT_PER_CHECK, largest=False)
+                
+                split_mask = torch.zeros(plane_num, dtype=torch.bool, device='cuda')
+                ambiguous_idx = ambiguous.nonzero(as_tuple=False).squeeze(-1)
+                split_mask[ambiguous_idx[topk]] = True
+            else:
+                split_mask = ambiguous
+            
+            # prune_core above changes plane indexing; remap split candidates into post-prune index space
+            split_mask = split_mask[keep_mask]
+
+            if split_mask.any():
+                self.net.split_selected_planes(split_mask)
+                logger.info(f'[check_plane_visibility++] split {int(split_mask.sum().item())} planes (capped at {MAX_SPLIT_PER_CHECK})')
+            else:
+                logger.info(f'[check_plane_visibility++] no valid ambiguous planes to split after pruning')
+        else:
+            logger.info(f'[check_plane_visibility++] LAST ITER no split')
+
+        self.net.planarSplat.check_model()
+        self.net.optimizer.zero_grad()
+        self.net.train()
         self.net.planarSplat.draw_plane(epoch=self.iter_step)
