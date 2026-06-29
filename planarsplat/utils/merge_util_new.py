@@ -151,14 +151,10 @@ def merge_plane(
     pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
 
 
-    # Step 7: Bring back ALL masked-out points and assign them to confirmed planes.
+    # Step 7: Bring back ALL foreground points and assign them to confirmed planes.
     #
     # Assignment is done **primitive-wise** (atomic) - the same principle used in
-    # find_best_assignments_for_each_group - so that all points from the same original
-    # Gaussian primitive always end up in the same plane instance. Mixing points from
-    # one primitive across different labels would create triangular faces that span two
-    # plane colors (gradient artifact), because faces_original connects adjacent points
-    # within the same primitive's grid.
+    # find_best_assignments_for_each_group()
     #
     # Two cases per primitive:
     #   (a) Partially assigned  → some points already survived mesh_dist_thresh and are
