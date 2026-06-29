@@ -48,9 +48,6 @@ def merge_plane(
         space_resolution=space_resolution,
         plane_ins_id=plane_ins_id)
     
-    ## calculate pts2mesh distance
-    dist_pts2mesh_original = calculate_pts2mesh_dist(pts_original, coarse_mesh_o3d)
-
     ## apply BG masking first – on ALL sampled points (before the mesh filter) so we know
     ## which points are genuinely in the foreground. pts_not_in_bg is later used in step 7
     ## to restrict bring-back candidates to non-BG points only.
@@ -66,11 +63,7 @@ def merge_plane(
         )
     pts_not_in_bg = pts_ins_assignment_not_bg > 0  # True = point is in FG (not background)
 
-    ## calculate masked pts assignment (BG filter first, then mesh distance filter)
-    ## Result is equivalent to the old order (intersection is commutative), but now we
-    ## also have pts_not_in_bg available for step 7.
-    pts_ins_assignment_masked = pts_ins_assignment_not_bg.clone()
-    pts_ins_assignment_masked[dist_pts2mesh_original > mesh_dist_thresh] = 0
+    pts_ins_assignment_masked = pts_ins_assignment_not_bg
 
     ## split planes into different group via normal 
     # NG almost certainly means "normal grouped"
@@ -234,9 +227,24 @@ def merge_plane(
         logger.info(f"bring_back_all_masked: reassigned {total_pts} points from {total_prims} primitives")
         pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
 
-
+    ## Plane-level mesh filter (applied after step 7 so that bring-back can use all FG points).
+    ## A whole plane is removed if its closest point to the coarse mesh is still further
+    ## than mesh_dist_thresh – meaning no part of the plane is supported by observed geometry.
+    dist_pts2mesh_original = calculate_pts2mesh_dist(pts_original, coarse_mesh_o3d)
+    removed_planes = 0
+    for label in pts_ins_assignment_final.unique():
+        if label == 0:
+            continue
+        plane_mask = pts_ins_assignment_final == label
+        min_dist_to_mesh = dist_pts2mesh_original[plane_mask].min()
+        if min_dist_to_mesh > mesh_dist_thresh:
+            pts_ins_assignment_final[plane_mask] = 0
+            removed_planes += 1
+    logger.info(f"plane-level mesh filter: removed {removed_planes} unsupported planes")
+    pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
 
     plane_ins_id_new = get_planeInsId_from_ptsInsAssignment(plane_normal.shape[0], pts_ins_assignment_original, pts_ins_assignment_final)
+
     planar_mesh, mesh_pts = build_planar_mesh_for_eval(
         pts_updated, 
         pts_normal_updated, 
