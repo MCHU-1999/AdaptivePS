@@ -152,40 +152,82 @@ def merge_plane(
     pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
 
 
-    # Bring back ALL points that were masked out (by mesh_dist_thresh or bg trim) and
-    # assign them to the nearest confirmed plane via the plane equation, ignoring the mesh.
-    plane_labels = [l for l in pts_ins_assignment_final.unique().tolist() if l > 0]
-    if len(plane_labels) > 0:
-        # Build plane parameters (normal + offset) for each confirmed plane from already-assigned pts
-        normals_list, offsets_list, labels_list = [], [], []
-        for label in plane_labels:
+    # Step 7: Bring back ALL masked-out points and assign them to confirmed planes.
+    #
+    # Assignment is done **primitive-wise** (atomic) - the same principle used in
+    # find_best_assignments_for_each_group - so that all points from the same original
+    # Gaussian primitive always end up in the same plane instance. Mixing points from
+    # one primitive across different labels would create triangular faces that span two
+    # plane colors (gradient artifact), because faces_original connects adjacent points
+    # within the same primitive's grid.
+    #
+    # Two cases per primitive:
+    #   (a) Partially assigned  → some points already survived mesh_dist_thresh and are
+    #                             committed; extend the remaining unassigned points to the
+    #                             same label (the primitive IS that plane surface).
+    #   (b) Fully unassigned    → find the confirmed plane whose equation best explains
+    #                             the primitive's centroid (mean point-to-plane dist),
+    #                             assign if within dist_thresh.
+    #
+    # After assignment we also update pts_normal_updated for the new points so that
+    # build_planar_mesh_for_eval snaps them correctly when it calls move_pts_onto_plane_simple.
+    plane_labels_list = [l for l in pts_ins_assignment_final.unique().tolist() if l > 0]
+    if len(plane_labels_list) > 0:
+        # Build confirmed plane parameters from already-snapped points
+        normals_list, offsets_list, labels_list, label_to_idx = [], [], [], {}
+        for idx, label in enumerate(plane_labels_list):
             mask = pts_ins_assignment_final == label
-            plane_pts = pts_updated[mask]          # pts already snapped onto the plane
+            plane_pts = pts_updated[mask]
             plane_n   = pts_normal_updated[mask]
             normal = F.normalize(torch.median(plane_n, dim=0)[0], dim=-1)
             offset = -torch.median((plane_pts * normal[None, :]).sum(-1))
             normals_list.append(normal)
             offsets_list.append(offset)
             labels_list.append(label)
+            label_to_idx[label] = idx
         normals_stack = torch.stack(normals_list)                                       # P, 3
         offsets_stack = torch.stack(offsets_list)                                       # P
-        labels_stack  = torch.tensor(labels_list, device=pts_original.device, dtype=torch.int32)  # P
+        labels_stack  = torch.tensor(labels_list, device=pts_original.device, dtype=torch.int32)
 
-        # All currently-unassigned points (masked by mesh_dist_thresh or bg trim)
-        unassigned_mask = pts_ins_assignment_final == 0
-        logger.info(f"bring_back_all_masked: {int(unassigned_mask.sum())} unassigned points to reassign")
-        if unassigned_mask.sum() > 0:
-            unassigned_pts = pts_original[unassigned_mask]                              # N, 3
-            # Point-to-plane absolute distance for every (point, plane) pair: (N, P)
-            dists = (unassigned_pts @ normals_stack.T) + offsets_stack[None, :]        # N, P
-            dists = dists.abs()
-            min_dists, best_plane_idx = dists.min(dim=1)                               # N
-            within_thresh = min_dists < dist_thresh
-            best_labels   = labels_stack[best_plane_idx]                               # N
-            unassigned_indices = torch.where(unassigned_mask)[0]
-            pts_ins_assignment_final[unassigned_indices[within_thresh]] = best_labels[within_thresh]
-            logger.info(f"bring_back_all_masked: reassigned {int(within_thresh.sum())} points")
+        all_prim_ids = pts_ins_assignment_original.unique()
+        all_prim_ids = all_prim_ids[all_prim_ids > 0]
+        total_pts, total_prims = 0, 0
+
+        for prim_id in all_prim_ids:
+            prim_mask          = pts_ins_assignment_original == prim_id
+            unassigned_in_prim = prim_mask & (pts_ins_assignment_final == 0)
+            if unassigned_in_prim.sum() == 0:
+                continue  # primitive is fully committed already
+
+            already_assigned = pts_ins_assignment_final[prim_mask]
+            already_assigned = already_assigned[already_assigned > 0]
+
+            if already_assigned.numel() > 0:
+                # (a) Partially assigned: extend to the already-committed label
+                best_label     = int(already_assigned.mode()[0].item())
+                best_normal_idx = label_to_idx[best_label]
+            else:
+                # (b) Fully unassigned: find nearest confirmed plane by mean distance
+                prim_pts   = pts_original[prim_mask]
+                dists      = (prim_pts @ normals_stack.T) + offsets_stack[None, :]  # N_prim, P
+                mean_dists = dists.abs().mean(dim=0)                                 # P
+                min_dist, best_plane_idx = mean_dists.min(dim=0)
+                if min_dist >= dist_thresh:
+                    continue  # too far from every confirmed plane → leave as background
+                best_label      = int(labels_stack[best_plane_idx].item())
+                best_normal_idx = best_plane_idx.item()
+
+            # Assign label and fix normals so snapping in build_planar_mesh_for_eval is correct
+            pts_ins_assignment_final[unassigned_in_prim] = best_label
+            pts_normal_updated[unassigned_in_prim] = (
+                normals_list[best_normal_idx].unsqueeze(0).repeat(int(unassigned_in_prim.sum()), 1)
+            )
+            total_pts   += int(unassigned_in_prim.sum())
+            total_prims += 1
+
+        logger.info(f"bring_back_all_masked: reassigned {total_pts} points from {total_prims} primitives")
         pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
+
 
 
     plane_ins_id_new = get_planeInsId_from_ptsInsAssignment(plane_normal.shape[0], pts_ins_assignment_original, pts_ins_assignment_final)
