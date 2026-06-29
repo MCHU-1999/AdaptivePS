@@ -66,21 +66,42 @@ if __name__ == "__main__":
         conf_path="configs/APS-big2.conf",
         mask="bldg_masks"
     )
-
-    scene = SCENES[1]
     run_adaptivePS(
         data_path=scene['data_path'],
         exp_name=scene['exp_name'],
-        out_path="AdaptivePS-sparse/40_2",
-        conf_path="configs/APS-big2.conf",
+        out_path="AdaptivePS-sparse/20_3",
+        conf_path="configs/APS-big3.conf",
         mask="bldg_masks"
     )
 
-    scene = SCENES[2]
-    run_adaptivePS(
-        data_path=scene['data_path'],
-        exp_name=scene['exp_name'],
-        out_path="AdaptivePS-sparse/80_2",
-        conf_path="configs/APS-big2.conf",
-        mask="bldg_masks"
-    )
+    # scene = SCENES[1]
+    # run_adaptivePS(
+    #     data_path=scene['data_path'],
+    #     exp_name=scene['exp_name'],
+    #     out_path="AdaptivePS-sparse/40_2",
+    #     conf_path="configs/APS-big2.conf",
+    #     mask="bldg_masks"
+    # )
+    # run_adaptivePS(
+    #     data_path=scene['data_path'],
+    #     exp_name=scene['exp_name'],
+    #     out_path="AdaptivePS-sparse/40_3",
+    #     conf_path="configs/APS-big3.conf",
+    #     mask="bldg_masks"
+    # )
+
+    # scene = SCENES[2]
+    # run_adaptivePS(
+    #     data_path=scene['data_path'],
+    #     exp_name=scene['exp_name'],
+    #     out_path="AdaptivePS-sparse/80_2",
+    #     conf_path="configs/APS-big2.conf",
+    #     mask="bldg_masks"
+    # )
+    # run_adaptivePS(
+    #     data_path=scene['data_path'],
+    #     exp_name=scene['exp_name'],
+    #     out_path="AdaptivePS-sparse/80_3",
+    #     conf_path="configs/APS-big3.conf",
+    #     mask="bldg_masks"
+    # )
