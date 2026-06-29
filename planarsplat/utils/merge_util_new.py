@@ -51,20 +51,26 @@ def merge_plane(
     ## calculate pts2mesh distance
     dist_pts2mesh_original = calculate_pts2mesh_dist(pts_original, coarse_mesh_o3d)
 
-    ## calculate masked pts assignment
-    pts_ins_assignment_masked = pts_ins_assignment_original.clone()
-    pts_ins_assignment_masked[dist_pts2mesh_original > mesh_dist_thresh] = 0
-
-    ## mask the bg points as well
+    ## apply BG masking first – on ALL sampled points (before the mesh filter) so we know
+    ## which points are genuinely in the foreground. pts_not_in_bg is later used in step 7
+    ## to restrict bring-back candidates to non-BG points only.
+    pts_ins_assignment_not_bg = pts_ins_assignment_original.clone()
     if trim_enabled and view_info_list is not None and H is not None and W is not None:
-        pts_ins_assignment_masked = mask_points_in_bg(
+        pts_ins_assignment_not_bg = mask_points_in_bg(
             pts_world=pts_original,
-            pts_ins_assignment=pts_ins_assignment_masked,
+            pts_ins_assignment=pts_ins_assignment_not_bg,
             view_info_list=view_info_list,
             H=H,
             W=W,
             max_bg_ratio=0.4,
         )
+    pts_not_in_bg = pts_ins_assignment_not_bg > 0  # True = point is in FG (not background)
+
+    ## calculate masked pts assignment (BG filter first, then mesh distance filter)
+    ## Result is equivalent to the old order (intersection is commutative), but now we
+    ## also have pts_not_in_bg available for step 7.
+    pts_ins_assignment_masked = pts_ins_assignment_not_bg.clone()
+    pts_ins_assignment_masked[dist_pts2mesh_original > mesh_dist_thresh] = 0
 
     ## split planes into different group via normal 
     # NG almost certainly means "normal grouped"
@@ -195,7 +201,7 @@ def merge_plane(
 
         for prim_id in all_prim_ids:
             prim_mask          = pts_ins_assignment_original == prim_id
-            unassigned_in_prim = prim_mask & (pts_ins_assignment_final == 0)
+            unassigned_in_prim = prim_mask & (pts_ins_assignment_final == 0) & pts_not_in_bg
             if unassigned_in_prim.sum() == 0:
                 continue  # primitive is fully committed already
 
