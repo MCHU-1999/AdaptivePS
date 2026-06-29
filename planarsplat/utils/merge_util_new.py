@@ -169,7 +169,7 @@ def merge_plane(
             labels_list.append(label)
         normals_stack = torch.stack(normals_list)                                       # P, 3
         offsets_stack = torch.stack(offsets_list)                                       # P
-        labels_stack  = torch.tensor(labels_list, device=pts_original.device)          # P
+        labels_stack  = torch.tensor(labels_list, device=pts_original.device, dtype=torch.int32)  # P
 
         # All currently-unassigned points (masked by mesh_dist_thresh or bg trim)
         unassigned_mask = pts_ins_assignment_final == 0
