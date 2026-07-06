@@ -209,18 +209,6 @@ def merge_plane(
                 min_dist, best_plane_idx = mean_dists.min(dim=0)
                 if min_dist >= dist_thresh:
                     continue  # too far from every confirmed plane → leave as background
-                # --- Filter #1: normal consistency check ---
-                # Skip this primitive if its own normal is too different from the target
-                # plane's normal. This prevents mismatched-orientation primitives from
-                # being absorbed into a plane they don't belong to.
-                prim_normal = F.normalize(
-                    pts_normal_original[prim_mask].float().mean(dim=0), dim=-1
-                )
-                plane_normal_vec = normals_list[best_plane_idx.item()]
-                cos_sim = (prim_normal * plane_normal_vec).sum().abs()
-                normal_cos_thresh = math.cos(normal_angle_thresh / 180.0 * math.pi)
-                if cos_sim < normal_cos_thresh:
-                    continue  # normal mismatch → skip, leave as background
                 best_label      = int(labels_stack[best_plane_idx].item())
                 best_normal_idx = best_plane_idx.item()
 
@@ -234,39 +222,6 @@ def merge_plane(
 
         logger.info(f"bring_back_all_masked: reassigned {total_pts} points from {total_prims} primitives")
         pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
-
-    # Filter #3: Re-run connected-components after bring-back.
-    # Step 7 can attach a primitive to a plane even if it is spatially disconnected from
-    # the confirmed core (same plane equation, different location). CC splits those off;
-    # the subsequent min_pts_num filter removes the orphaned fragments.
-    pts_ins_assignment_final_cc = torch.zeros_like(pts_ins_assignment_final)
-    for label in pts_ins_assignment_final.unique():
-        if label == 0:
-            continue
-        plane_mask = pts_ins_assignment_final == label
-        plane_assignment_tmp = pts_ins_assignment_final * plane_mask.int()
-        plane_assignment_tmp = get_continues_pts_ins_assignment(plane_assignment_tmp).int()
-        cc_result = check_cc(
-            pts_updated,
-            plane_assignment_tmp,
-            adj_ratio_threshold=0.0,
-            adj_count_threshold=5,
-            voxel_size=voxel_size,
-        )
-        last_id = pts_ins_assignment_final_cc.max() + 1
-        pts_ins_assignment_final_cc[plane_mask] = cc_result[plane_mask] + last_id
-    pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final_cc).int()
-    # Remove small fragments created by the CC split
-    frag_removed = 0
-    for label in pts_ins_assignment_final.unique():
-        if label == 0:
-            continue
-        mask = pts_ins_assignment_final == label
-        if mask.sum() < min_pts_num:
-            pts_ins_assignment_final[mask] = 0
-            frag_removed += 1
-    logger.info(f"post-bring-back CC filter: removed {frag_removed} disconnected fragments")
-    pts_ins_assignment_final = get_continues_pts_ins_assignment(pts_ins_assignment_final).int()
 
     ## Plane-level mesh filter (applied after step 7 so that bring-back can use all FG points).
     ## A whole plane is removed if its closest point to the coarse mesh is still further
