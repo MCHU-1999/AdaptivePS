@@ -65,34 +65,20 @@ if __name__ == "__main__":
 
     ## PlanarSplatting
     scene = SCENES[0]
-    # run_adaptivePS(
-    #     data_path=scene['data_path'],
-    #     exp_name=scene['exp_name'],
-    #     out_path="AdaptivePS-sparse/20_2",
-    #     conf_path="configs/APS-big2.conf",
-    #     mask="bldg_masks"
-    # )
     run_adaptivePS(
         data_path=scene['data_path'],
         exp_name=scene['exp_name'],
-        out_path="AdaptivePS-sparse/20_3",
-        conf_path="configs/APS-big3.conf",
+        out_path="AdaptivePS-sparse/20",
+        conf_path="configs/APS-big-sparse.conf",
         mask="bldg_masks"
     )
 
     scene = SCENES[-1]
-    # run_adaptivePS(
-    #     data_path=scene['data_path'],
-    #     exp_name=scene['exp_name'],
-    #     out_path="AdaptivePS/Barn_2",
-    #     conf_path="configs/APS-Barn2.conf",
-    #     mask="bldg_masks"
-    # )
     run_adaptivePS(
         data_path=scene['data_path'],
         exp_name=scene['exp_name'],
-        out_path="AdaptivePS/Barn_3",
-        conf_path="configs/APS-Barn3.conf",
+        out_path="AdaptivePS-sparse/400",
+        conf_path="configs/APS-Barn-sparse.conf",
         mask="bldg_masks"
     )
 
