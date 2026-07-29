@@ -11,7 +11,7 @@ MY_STORAGE = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
 SCENES = [
     # TnT Datasets
     {
-        "exp_name": "Barn",
+        "exp_name": "Barn_sparse20",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse20",
         "bldg_prompt": "The building",
         "bldg_mask_mode": "biggest",
@@ -20,7 +20,7 @@ SCENES = [
         "max_depth": 200,
     },
     {
-        "exp_name": "Barn",
+        "exp_name": "Barn_sparse40",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse40",
         "bldg_prompt": "The building",
         "bldg_mask_mode": "biggest",
@@ -29,7 +29,7 @@ SCENES = [
         "max_depth": 200,
     },
     {
-        "exp_name": "Barn",
+        "exp_name": "Barn_sparse80",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse80",
         "bldg_prompt": "The building",
         "bldg_mask_mode": "biggest",
@@ -38,7 +38,7 @@ SCENES = [
         "max_depth": 200,
     },
     {
-        "exp_name": "Barn",
+        "exp_name": "Barn_sparse400",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn",
         "bldg_prompt": "The building",
         "bldg_mask_mode": "biggest",
@@ -70,7 +70,8 @@ if __name__ == "__main__":
         exp_name=scene['exp_name'],
         out_path="AdaptivePS-sparse/20",
         conf_path="configs/APS-big-sparse.conf",
-        mask="bldg_masks"
+        mask="bldg_masks",
+        runtime_log_path="evaluation/runtime_logs_tnt_sparse/Barn_sparse.json"
     )
 
     scene = SCENES[-1]
@@ -79,7 +80,8 @@ if __name__ == "__main__":
         exp_name=scene['exp_name'],
         out_path="AdaptivePS-sparse/400",
         conf_path="configs/APS-Barn-sparse.conf",
-        mask="bldg_masks"
+        mask="bldg_masks",
+        runtime_log_path="evaluation/runtime_logs_tnt_sparse/Barn_sparse.json"
     )
 
     # scene = SCENES[1]
