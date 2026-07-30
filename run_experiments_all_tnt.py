@@ -38,8 +38,17 @@ SCENES = [
         "max_depth": 200,
     },
     {
+        "exp_name": "Barn_sparse200",
+        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse200",
+        "bldg_prompt": "The building",
+        "bldg_mask_mode": "biggest",
+        "gnd_prompt": ["ground", "grass", "pavement"],
+        "depth_trunc": 6,
+        "max_depth": 200,
+    },
+    {
         "exp_name": "Barn_sparse400",
-        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn",
+        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse400",
         "bldg_prompt": "The building",
         "bldg_mask_mode": "biggest",
         "gnd_prompt": ["ground", "grass", "pavement"],
@@ -58,60 +67,18 @@ if __name__ == "__main__":
     set_hf_token_from_txt(token_path)
 
     # ## SAM3
-    # sam_inference_all_scenes(SCENES)
+    sam_inference_all_scenes(SCENES)
 
     # ## DA3
-    # da3_inference_all_scenes(SCENES)
+    da3_inference_all_scenes(SCENES)
 
     ## PlanarSplatting
-    scene = SCENES[0]
-    run_adaptivePS(
-        data_path=scene['data_path'],
-        exp_name=scene['exp_name'],
-        out_path="AdaptivePS-sparse/20",
-        conf_path="configs/APS-big-sparse.conf",
-        mask="bldg_masks",
-        runtime_log_path="evaluation/runtime_logs_tnt_sparse/Barn_sparse.json"
-    )
-
-    scene = SCENES[-1]
-    run_adaptivePS(
-        data_path=scene['data_path'],
-        exp_name=scene['exp_name'],
-        out_path="AdaptivePS-sparse/400",
-        conf_path="configs/APS-Barn-sparse.conf",
-        mask="bldg_masks",
-        runtime_log_path="evaluation/runtime_logs_tnt_sparse/Barn_sparse.json"
-    )
-
-    # scene = SCENES[1]
-    # run_adaptivePS(
-    #     data_path=scene['data_path'],
-    #     exp_name=scene['exp_name'],
-    #     out_path="AdaptivePS-sparse/40_2",
-    #     conf_path="configs/APS-big2.conf",
-    #     mask="bldg_masks"
-    # )
-    # run_adaptivePS(
-    #     data_path=scene['data_path'],
-    #     exp_name=scene['exp_name'],
-    #     out_path="AdaptivePS-sparse/40_3",
-    #     conf_path="configs/APS-big3.conf",
-    #     mask="bldg_masks"
-    # )
-
-    # scene = SCENES[2]
-    # run_adaptivePS(
-    #     data_path=scene['data_path'],
-    #     exp_name=scene['exp_name'],
-    #     out_path="AdaptivePS-sparse/80_2",
-    #     conf_path="configs/APS-big2.conf",
-    #     mask="bldg_masks"
-    # )
-    # run_adaptivePS(
-    #     data_path=scene['data_path'],
-    #     exp_name=scene['exp_name'],
-    #     out_path="AdaptivePS-sparse/80_3",
-    #     conf_path="configs/APS-big3.conf",
-    #     mask="bldg_masks"
-    # )
+    for scene in SCENES:
+        run_adaptivePS(
+            data_path=scene['data_path'],
+            exp_name=scene['exp_name'],
+            out_path="AdaptivePS-sparse",
+            conf_path="configs/APS-big-sparse.conf",
+            mask="bldg_masks",
+            runtime_log_path="evaluation/runtime_logs_tnt_sparse/Barn_sparse.json"
+        )
