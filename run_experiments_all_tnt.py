@@ -66,10 +66,10 @@ if __name__ == "__main__":
     token_path = os.path.join(os.path.dirname(__file__), "SAM3", "hf_token.txt")
     set_hf_token_from_txt(token_path)
 
-    # ## SAM3
+    ## SAM3
     sam_inference_all_scenes(SCENES)
 
-    # ## DA3
+    ## DA3
     da3_inference_all_scenes(SCENES)
 
     ## PlanarSplatting
