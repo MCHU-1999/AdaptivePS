@@ -86,12 +86,10 @@ def run_evaluation(dataset_dir, traj_path, ply_path, out_dir):
 
     # Load reconstruction and according GT
     print(ply_path)
-    mesh = o3d.io.read_triangle_mesh(ply_path)
-    mesh.remove_unreferenced_vertices()
-    # pcd = mesh.sample_points_uniformly(number_of_points=12800000)
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(mesh.vertices)
-    # pcd = o3d.io.read_point_cloud(ply_path)
+    pcd = o3d.io.read_point_cloud(ply_path)
+    # mesh = o3d.io.read_triangle_mesh(ply_path)
+    # mesh.remove_unreferenced_vertices()
+    # pcd = mesh.sample_points_uniformly(number_of_points=1000000)
     print(gt_filen)
     gt_pcd = o3d.io.read_point_cloud(gt_filen)
 
@@ -159,28 +157,46 @@ def run_evaluation(dataset_dir, traj_path, ply_path, out_dir):
 
 
 if __name__ == "__main__":
+    import glob
 
-    BASE = "/Users/mchu/Documents/TUD/Thesis"
-    RUNS = [
-        "Allnone",
-        "No1mesh",
-        "Normalswap",
-        "Nosplit",
-        "Notrim",
-        "Only1mesh",
-        "Onlysplit",
-        "Onlytrim"
-    ]
+    BASE         = "/Users/mchu/Documents/TUD/Thesis"
+    DATASET_DIR  = f"{BASE}/TNT_GOF/TrainingSet/Barn"
+    APS_ROOT     = f"{BASE}/PlanarSplatting/AdaptivePS-sparse"
 
-    DATASET_DIR = f"{BASE}/TNT_GOF/TrainingSet/Barn"
-    TRAJ_PATH = f"{BASE}/TNT_GOF/TrainingSet/Barn/DA3_colmap/DA3.log"
-    PLY_PATHS = [f"{BASE}/PlanarSplatting/Ablation_tnt/{dir}/planar_mesh.ply" for dir in RUNS]
-    OUT_DIRS = [f"{BASE}/PlanarSplatting/evaluation/eval_tnt/ablation/{dir}" for dir in RUNS]
+    SCENE_DIRS = sorted(glob.glob(f"{APS_ROOT}/Barn_sparse*_APS"))
 
-    for ply_path, out_dir in zip(PLY_PATHS, OUT_DIRS):
+    for scene_dir in SCENE_DIRS:
+        # Each scene has exactly one timestamped run subfolder — pick the latest
+        run_folders = sorted(glob.glob(f"{scene_dir}/*/"))
+        if not run_folders:
+            print(f"[SKIP] No run folder found in {scene_dir}")
+            continue
+        run_folder = run_folders[-1].rstrip("/")
+
+        ply_path  = f"{run_folder}/ksr_output/final_sampled.ply"
+        traj_path = f"{run_folder}/DA3.log"
+        out_dir   = f"{run_folder}/eval_tnt"
+
+        scene_name = os.path.basename(scene_dir)
+        print(f"\n{'='*60}")
+        print(f"  Scene : {scene_name}")
+        print(f"  Run   : {os.path.basename(run_folder)}")
+        print(f"  PLY   : {ply_path}")
+        print(f"  Traj  : {traj_path}")
+        print(f"  Out   : {out_dir}")
+        print(f"{'='*60}")
+
+        if not os.path.exists(ply_path):
+            print(f"[SKIP] PLY not found: {ply_path}")
+            continue
+        if not os.path.exists(traj_path):
+            print(f"[SKIP] Trajectory not found: {traj_path}")
+            continue
+
         run_evaluation(
             dataset_dir=DATASET_DIR,
-            traj_path=TRAJ_PATH,
+            traj_path=traj_path,
             ply_path=ply_path,
             out_dir=out_dir,
         )
+
