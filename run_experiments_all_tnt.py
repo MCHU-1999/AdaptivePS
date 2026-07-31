@@ -11,7 +11,7 @@ MY_STORAGE = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
 SCENES = [
     # TnT Datasets
     {
-        "exp_name": "Barn_sparse20",
+        "exp_name": "Barn_sparse25",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse25",
         "bldg_prompt": "The building",
         "bldg_mask_mode": "biggest",
@@ -20,7 +20,7 @@ SCENES = [
         "max_depth": 200,
     },
     {
-        "exp_name": "Barn_sparse40",
+        "exp_name": "Barn_sparse50",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse50",
         "bldg_prompt": "The building",
         "bldg_mask_mode": "biggest",
@@ -29,7 +29,7 @@ SCENES = [
         "max_depth": 200,
     },
     {
-        "exp_name": "Barn_sparse80",
+        "exp_name": "Barn_sparse100",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse100",
         "bldg_prompt": "The building",
         "bldg_mask_mode": "biggest",
