@@ -7,6 +7,8 @@
 #include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
 #include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
 #include <CGAL/Polygon_mesh_processing/connected_components.h>
+#include <CGAL/Polygon_mesh_processing/triangulate_faces.h>
+#include <CGAL/Polygon_mesh_processing/distance.h>
 #include <CGAL/Surface_mesh.h>
 #include <CGAL/IO/PLY.h>
 
@@ -312,16 +314,14 @@ int main(int argc, char **argv) {
   }
   // ─── End ground-plane detection ──────────────────────────────────────────
 
-  std::map<typename KSR::KSP::Face_support, bool> external_nodes;
-  // All bbox faces prefer "outside" label except YMAX (intentional for model orientation).
-  external_nodes[KSR::KSP::Face_support::ZMIN] = true;
-  // external_nodes[KSR::KSP::Face_support::ZMIN] = false;
-  external_nodes[KSR::KSP::Face_support::ZMAX] = false;
-  external_nodes[KSR::KSP::Face_support::XMIN] = false;
-  external_nodes[KSR::KSP::Face_support::XMAX] = false;
-  external_nodes[KSR::KSP::Face_support::YMIN] = false;
-  // external_nodes[KSR::KSP::Face_support::YMAX] = true;
-  external_nodes[KSR::KSP::Face_support::YMAX] = false;
+  // std::map<typename KSR::KSP::Face_support, bool> external_nodes;
+  // // All bbox faces prefer "outside" label except YMAX (intentional for model orientation).
+  // external_nodes[KSR::KSP::Face_support::ZMIN] = true;
+  // external_nodes[KSR::KSP::Face_support::ZMAX] = false;
+  // external_nodes[KSR::KSP::Face_support::XMIN] = false;
+  // external_nodes[KSR::KSP::Face_support::XMAX] = false;
+  // external_nodes[KSR::KSP::Face_support::YMIN] = false;
+  // external_nodes[KSR::KSP::Face_support::YMAX] = false;
  
   auto param =CGAL::parameters::k_neighbors(8)
     .maximum_distance(0.05) // the maximum distance from a point to a plane
@@ -368,92 +368,108 @@ int main(int argc, char **argv) {
 
   std::vector<Point_3> vtx;
   std::vector<std::vector<std::size_t>> polylist;
-  std::vector<FT> lambdas{0.1, 0.3, 0.5, 0.7, 0.9};
+  FT lambda = 0.9;
 
   bool save_biggest_component_only = true;
   bool non_empty = false;
-  for (FT l : lambdas) {
-    vtx.clear();
-    polylist.clear();
-    // std::cout << "Reconstructing with lambda=" << CGAL::to_double(l) << "..." << std::endl;
-    ksr.reconstruct_with_ground(l, std::back_inserter(vtx), std::back_inserter(polylist));
-    // ksr.reconstruct(l, external_nodes, std::back_inserter(vtx), std::back_inserter(polylist));
-    
-    std::cout << "  => vtx=" << vtx.size() << " polylist=" << polylist.size() << std::endl;
 
-    if (polylist.size() > 0) {
-      non_empty = true;
+  ksr.reconstruct_with_ground(lambda, std::back_inserter(vtx), std::back_inserter(polylist));
+  // ksr.reconstruct(lambda, external_nodes, std::back_inserter(vtx), std::back_inserter(polylist));
+  
+  std::cout << "  => vtx=" << vtx.size() << " polylist=" << polylist.size() << std::endl;
 
-      // Repair the soup: removes duplicates and degenerated faces
-      CGAL::Polygon_mesh_processing::repair_polygon_soup(vtx, polylist);
-      // Orient the soup: fixes inconsistent normals which cause non-manifold errors
-      CGAL::Polygon_mesh_processing::orient_polygon_soup(vtx, polylist);
+  if (polylist.size() > 0) {
+    non_empty = true;
 
-      using Mesh = CGAL::Surface_mesh<Point_3>;
+    // Repair the soup: removes duplicates and degenerated faces
+    CGAL::Polygon_mesh_processing::repair_polygon_soup(vtx, polylist);
+    // Orient the soup: fixes inconsistent normals which cause non-manifold errors
+    CGAL::Polygon_mesh_processing::orient_polygon_soup(vtx, polylist);
 
-      std::string lstr = std::to_string(CGAL::to_double(l));
-      std::string filename = "polylist_" + lstr + ".ply";
-      fs::path outp = outdir / filename;
+    using Mesh = CGAL::Surface_mesh<Point_3>;
 
-      if (save_biggest_component_only) {
-        // Convert polygon soup to a Surface_mesh
-        Mesh full_mesh;
-        CGAL::Polygon_mesh_processing::polygon_soup_to_polygon_mesh(vtx, polylist, full_mesh);
+    std::string lstr = std::to_string(CGAL::to_double(lambda));
+    std::string filename = "polylist_" + lstr + ".ply";
+    fs::path outp = outdir / filename;
 
-        // Label connected components: each face gets an integer component ID
-        Mesh::Property_map<Mesh::Face_index, std::size_t> comp_id =
-          full_mesh.add_property_map<Mesh::Face_index, std::size_t>("f:component", 0).first;
-        std::size_t num_components = CGAL::Polygon_mesh_processing::connected_components(full_mesh, comp_id);
+    if (save_biggest_component_only) {
+      // Convert polygon soup to a Surface_mesh
+      Mesh full_mesh;
+      CGAL::Polygon_mesh_processing::polygon_soup_to_polygon_mesh(vtx, polylist, full_mesh);
 
-        std::cout << "Lambda " << CGAL::to_double(l)
-                  << ": " << num_components << " component(s)" << std::endl;
+      // Label connected components: each face gets an integer component ID
+      Mesh::Property_map<Mesh::Face_index, std::size_t> comp_id =
+        full_mesh.add_property_map<Mesh::Face_index, std::size_t>("f:component", 0).first;
+      std::size_t num_components = CGAL::Polygon_mesh_processing::connected_components(full_mesh, comp_id);
 
-        // Count faces per component, find the largest
-        std::vector<std::size_t> face_count(num_components, 0);
-        for (Mesh::Face_index f : full_mesh.faces())
-          ++face_count[comp_id[f]];
+      std::cout << "Lambda " << CGAL::to_double(lambda)
+                << ": " << num_components << " component(s)" << std::endl;
 
-        std::size_t best = std::max_element(face_count.begin(), face_count.end()) - face_count.begin();
-        std::cout << "  Largest component: " << best
-                  << " (" << face_count[best] << " faces)" << std::endl;
+      // Count faces per component, find the largest
+      std::vector<std::size_t> face_count(num_components, 0);
+      for (Mesh::Face_index f : full_mesh.faces())
+        ++face_count[comp_id[f]];
 
-        // Build sub-mesh for the largest component only
-        Mesh sub_mesh;
-        std::unordered_map<Mesh::Vertex_index, Mesh::Vertex_index> vmap;
+      std::size_t best = std::max_element(face_count.begin(), face_count.end()) - face_count.begin();
+      std::cout << "  Largest component: " << best
+                << " (" << face_count[best] << " faces)" << std::endl;
 
-        for (Mesh::Face_index f : full_mesh.faces()) {
-          if (comp_id[f] != best) continue;
+      // Build sub-mesh for the largest component only
+      Mesh sub_mesh;
+      std::unordered_map<Mesh::Vertex_index, Mesh::Vertex_index> vmap;
 
-          std::vector<Mesh::Vertex_index> new_verts;
-          for (Mesh::Vertex_index v :
-               CGAL::vertices_around_face(full_mesh.halfedge(f), full_mesh)) {
-            auto it = vmap.find(v);
-            if (it == vmap.end()) {
-              Mesh::Vertex_index nv = sub_mesh.add_vertex(full_mesh.point(v));
-              vmap[v] = nv;
-              new_verts.push_back(nv);
-            } else {
-              new_verts.push_back(it->second);
-            }
+      for (Mesh::Face_index f : full_mesh.faces()) {
+        if (comp_id[f] != best) continue;
+
+        std::vector<Mesh::Vertex_index> new_verts;
+        for (Mesh::Vertex_index v :
+              CGAL::vertices_around_face(full_mesh.halfedge(f), full_mesh)) {
+          auto it = vmap.find(v);
+          if (it == vmap.end()) {
+            Mesh::Vertex_index nv = sub_mesh.add_vertex(full_mesh.point(v));
+            vmap[v] = nv;
+            new_verts.push_back(nv);
+          } else {
+            new_verts.push_back(it->second);
           }
-          sub_mesh.add_face(new_verts);
         }
-
-        bool success = CGAL::IO::write_PLY(outp.string(), sub_mesh);
-        if (success)
-          std::cout << "  Wrote largest component: " << outp << std::endl;
-        else
-          std::cout << "  Failed to write: " << outp << std::endl;
-
-      } else {
-        // Save the full mesh (all components) as a polygon soup
-        std::cout << "Lambda " << CGAL::to_double(l) << ": saving full soup" << std::endl;
-        bool success = CGAL::IO::write_polygon_soup(outp.string(), vtx, polylist);
-        if (success)
-          std::cout << "  Wrote: " << outp << std::endl;
-        else
-          std::cout << "  Failed to write: " << outp << std::endl;
+        sub_mesh.add_face(new_verts);
       }
+
+      bool success = CGAL::IO::write_PLY(outp.string(), sub_mesh);
+      if (success)
+        std::cout << "  Wrote largest component: " << outp << std::endl;
+      else
+        std::cout << "  Failed to write: " << outp << std::endl;
+
+      // ── Sample point cloud from the reconstructed mesh ─────────────────
+      // KSR output is polygonal; triangulate in-place before sampling.
+      CGAL::Polygon_mesh_processing::triangulate_faces(sub_mesh);
+
+      const std::size_t NUM_SAMPLES = 100000;
+      CGAL::Point_set_3<Point_3> sampled_cloud;
+      CGAL::Polygon_mesh_processing::sample_triangle_mesh(
+          sub_mesh,
+          sampled_cloud.point_back_inserter(),
+          CGAL::parameters::number_of_points_on_faces(NUM_SAMPLES));
+
+      fs::path sample_outp = outdir / "final_sampled.ply";
+      std::ofstream sample_ofs(sample_outp.string());
+      bool sample_ok = CGAL::IO::write_PLY(sample_ofs, sampled_cloud);
+      if (sample_ok)
+        std::cout << "  Wrote sampled point cloud (" << NUM_SAMPLES << " pts): "
+                  << sample_outp << std::endl;
+      else
+        std::cout << "  Failed to write sampled cloud: " << sample_outp << std::endl;
+
+    } else {
+      // Save the full mesh (all components) as a polygon soup
+      std::cout << "Lambda " << CGAL::to_double(lambda) << ": saving full soup" << std::endl;
+      bool success = CGAL::IO::write_polygon_soup(outp.string(), vtx, polylist);
+      if (success)
+        std::cout << "  Wrote: " << outp << std::endl;
+      else
+        std::cout << "  Failed to write: " << outp << std::endl;
     }
   }
 
