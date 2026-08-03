@@ -52,7 +52,7 @@ from util import make_dir
 from plot import plot_graph
 
 
-def run_evaluation(dataset_dir, traj_path, ply_path, out_dir):
+def run_evaluation(dataset_dir, traj_path, ply_path, out_dir, colmap_ref_logfile=None):
     scene = os.path.basename(os.path.normpath(dataset_dir))
 
     if scene not in scenes_tau_dict:
@@ -68,7 +68,9 @@ def run_evaluation(dataset_dir, traj_path, ply_path, out_dir):
     # put the crop-file, the GT file, the COLMAP SfM log file and
     # the alignment of the according scene in a folder of
     # the same scene name in the dataset_dir
-    colmap_ref_logfile = os.path.join(dataset_dir, scene + "_COLMAP_SfM.log")
+    # COLMAP SfM reference: can be overridden for sparse subsets
+    if colmap_ref_logfile is None:
+        colmap_ref_logfile = os.path.join(dataset_dir, scene + "_COLMAP_SfM.log")
 
     # this is for groundtruth pointcloud, we can use it
     alignment = os.path.join(dataset_dir, scene + "_trans.txt")
@@ -157,15 +159,23 @@ def run_evaluation(dataset_dir, traj_path, ply_path, out_dir):
 
 
 if __name__ == "__main__":
-    import glob
+    import glob, re
 
-    BASE         = "/Users/mchu/Documents/TUD/Thesis"
-    DATASET_DIR  = f"{BASE}/TNT_GOF/TrainingSet/Barn"
-    APS_ROOT     = f"{BASE}/PlanarSplatting/AdaptivePS-sparse"
+    BASE          = "/Users/mchu/Documents/TUD/Thesis"
+    DATASET_DIR   = f"{BASE}/TNT_GOF/TrainingSet/Barn"   # GT files always from full Barn
+    SPARSE_ROOT   = f"{BASE}/TNT_GOF/TrainingSet"        # Barn_sparse{N}/ dirs live here
+    APS_ROOT      = f"{BASE}/PlanarSplatting/AdaptivePS-sparse"
 
     SCENE_DIRS = sorted(glob.glob(f"{APS_ROOT}/Barn_sparse*_APS"))
 
     for scene_dir in SCENE_DIRS:
+        # Extract sparse count from dir name, e.g. Barn_sparse25_APS → 25
+        m = re.search(r'Barn_sparse(\d+)_APS', os.path.basename(scene_dir))
+        if not m:
+            print(f"[SKIP] Cannot parse count from {scene_dir}")
+            continue
+        sparse_count = m.group(1)
+
         # Each scene has exactly one timestamped run subfolder — pick the latest
         run_folders = sorted(glob.glob(f"{scene_dir}/*/"))
         if not run_folders:
@@ -173,16 +183,18 @@ if __name__ == "__main__":
             continue
         run_folder = run_folders[-1].rstrip("/")
 
-        ply_path  = f"{run_folder}/ksr_output/final_sampled.ply"
-        traj_path = f"{run_folder}/DA3.log"
-        out_dir   = f"{run_folder}/eval_tnt"
+        ply_path           = f"{run_folder}/ksr_output/final_sampled.ply"
+        traj_path          = f"{run_folder}/DA3.log"
+        out_dir            = f"{run_folder}/eval_tnt"
+        colmap_ref_logfile = f"{SPARSE_ROOT}/Barn_sparse{sparse_count}/Barn_COLMAP_SfM.log"
 
         scene_name = os.path.basename(scene_dir)
         print(f"\n{'='*60}")
-        print(f"  Scene : {scene_name}")
+        print(f"  Scene : {scene_name}  (sparse {sparse_count})")
         print(f"  Run   : {os.path.basename(run_folder)}")
         print(f"  PLY   : {ply_path}")
         print(f"  Traj  : {traj_path}")
+        print(f"  SfM   : {colmap_ref_logfile}")
         print(f"  Out   : {out_dir}")
         print(f"{'='*60}")
 
@@ -192,11 +204,15 @@ if __name__ == "__main__":
         if not os.path.exists(traj_path):
             print(f"[SKIP] Trajectory not found: {traj_path}")
             continue
+        if not os.path.exists(colmap_ref_logfile):
+            print(f"[SKIP] COLMAP SfM log not found: {colmap_ref_logfile}")
+            print(f"       Run prepare_sparse_barn.py first.")
+            continue
 
         run_evaluation(
             dataset_dir=DATASET_DIR,
             traj_path=traj_path,
             ply_path=ply_path,
             out_dir=out_dir,
+            colmap_ref_logfile=colmap_ref_logfile,
         )
-
