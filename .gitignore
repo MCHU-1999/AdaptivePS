@@ -4,6 +4,7 @@ SAM3/hf_token.txt
 data/
 evaluation/runtime_logs*/
 evaluation/eval_tnt/*/
+evaluation/runtime_log*
 
 exps*/
 checkpoints/
