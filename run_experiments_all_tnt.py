@@ -11,6 +11,15 @@ MY_STORAGE = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
 SCENES = [
     # TnT Datasets
     {
+        "exp_name": "Barn_sparse_warmup",
+        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse25",
+        "bldg_prompt": "The building",
+        "bldg_mask_mode": "biggest",
+        "gnd_prompt": ["ground", "grass", "pavement"],
+        "depth_trunc": 6,
+        "max_depth": 200,
+    },
+    {
         "exp_name": "Barn_sparse25",
         "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse25",
         "bldg_prompt": "The building",
@@ -55,6 +64,15 @@ SCENES = [
         "depth_trunc": 6,
         "max_depth": 200,
     },
+    {
+        "exp_name": "Barn_sparse410",
+        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn",
+        "bldg_prompt": "The building",
+        "bldg_mask_mode": "biggest",
+        "gnd_prompt": ["ground", "grass", "pavement"],
+        "depth_trunc": 6,
+        "max_depth": 200,
+    },
 ]
 
 
@@ -80,5 +98,5 @@ if __name__ == "__main__":
             out_path="AdaptivePS-sparse",
             conf_path="configs/APS-Barn-sparse.conf",
             mask="bldg_masks",
-            runtime_log_path="evaluation/runtime_logs_tnt_sparse/Barn_sparse.json"
+            runtime_log_path="evaluation/runtime_logs_tnt/sparse.json"
         )
