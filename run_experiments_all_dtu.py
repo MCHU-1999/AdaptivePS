@@ -40,7 +40,7 @@ if __name__ == "__main__":
             out_path="AdaptivePS-sparse/DTU-Building",
             conf_path="configs/APS-DTU-sparse.conf",
             mask="bldg_masks",
-            runtime_log_path="evaluation/runtime_logs_dtu_sparse/aps_sparse.json"
+            runtime_log_path="evaluation/runtime_logs/sparse.json"
         )
 
     # ## Baseline PlanarSplatting
