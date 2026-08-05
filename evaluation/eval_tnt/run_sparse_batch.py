@@ -50,6 +50,7 @@ from registration import (
 from evaluation import EvaluateHisto, compute_chamfer
 from util import make_dir
 from plot import plot_graph
+from convert_to_logfile import convert_COLMAP_to_log
 
 
 def run_evaluation(dataset_dir, traj_path, ply_path, out_dir, colmap_ref_logfile=None):
@@ -201,8 +202,27 @@ if __name__ == "__main__":
         if not os.path.exists(ply_path):
             print(f"[SKIP] PLY not found: {ply_path}")
             continue
+
+        # Generate DA3.log from the sparse COLMAP binary files if it doesn't
+        # already exist (or regenerate to ensure it's up-to-date).
+        colmap_dir = f"{SPARSE_ROOT}/Barn_sparse{sparse_count}/DA3_colmap"
+        images_dir = f"{SPARSE_ROOT}/Barn_sparse{sparse_count}/images"
+        if os.path.isdir(colmap_dir):
+            try:
+                convert_COLMAP_to_log(
+                    colmap_dir + "/",   # dirname() strips trailing / → the dir itself
+                    traj_path,
+                    images_dir,
+                    "jpg",
+                )
+                print(f"  Generated trajectory: {traj_path}")
+            except Exception as e:
+                print(f"  [WARN] convert_COLMAP_to_log failed: {e}")
+        else:
+            print(f"  [WARN] DA3_colmap dir not found: {colmap_dir}")
+
         if not os.path.exists(traj_path):
-            print(f"[SKIP] Trajectory not found: {traj_path}")
+            print(f"[SKIP] Trajectory not found (and could not be generated): {traj_path}")
             continue
         if not os.path.exists(colmap_ref_logfile):
             print(f"[SKIP] COLMAP SfM log not found: {colmap_ref_logfile}")

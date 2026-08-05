@@ -145,6 +145,11 @@ int main(int argc, char **argv) {
     }
   }
 
+  // Ground-plane info needed after the kEnableGroundCap block to filter sampled pts.
+  int      ground_lbl_out = -1;
+  Vector_3 ground_N_out(0.0, 0.0, 1.0);
+  Point_3  ground_C_out(0.0, 0.0, 0.0);
+
   // ─── Ground-plane detection & bottom-cap synthesis ──────────────────────
   // For each labeled plane, we project its points into the plane's own local
   // (U,V) tangent frame, compute the 2D convex-hull area, and declare the
@@ -155,7 +160,7 @@ int main(int argc, char **argv) {
   // Set to false to skip ground-cap synthesis entirely.
   const bool kEnableGroundCap = true;
   if (kEnableGroundCap && has_assignment) {
-    const double kGridStep = 0.05;
+    const double kGridStep = 0.02;
 
     // ── Helper: orthonormal tangent frame (U,V) for a unit normal N ────────
     auto make_tangent_frame = [](Vector_3 N, Vector_3 &U, Vector_3 &V) {
@@ -284,6 +289,69 @@ int main(int argc, char **argv) {
                 << "  ch-area=" << best_area
                 << "  (synthetic points will share label=" << new_lbl << ")" << std::endl;
 
+      // Expose ground-plane geometry for post-sampling filter below.
+      ground_lbl_out = ground_lbl;
+      ground_N_out   = f.N;
+      ground_C_out   = f.C;
+
+      // ── Remove below-ground points ────────────────────────────────────────
+      // "Below ground" = the half-space of the ground plane that contains fewer
+      // points (noise / scanner artefacts beneath the surface).  We compute the
+      // signed distance  d = (p − C) · N  for each point and discard the
+      // minority half-space.
+      {
+        int cnt_pos = 0, cnt_neg = 0;
+        {
+          int idx = 0;
+          for (auto it = point_set.begin(); it != point_set.end(); ++it, ++idx) {
+            const double d =
+                CGAL::to_double((point_set.point(*it) - f.C) * f.N);
+            if (d >= 0.0) ++cnt_pos; else ++cnt_neg;
+          }
+        }
+        // Majority side = "above ground" — keep it.
+        const bool keep_pos = (cnt_pos >= cnt_neg);
+        std::cout << "  Below-ground filter: pos=" << cnt_pos
+                  << " neg=" << cnt_neg
+                  << "  → removing "
+                  << (keep_pos ? "negative" : "positive")
+                  << " half-space ("
+                  << std::min(cnt_pos, cnt_neg) << " pts)" << std::endl;
+
+        // Rebuild point_set and plane_assignments in one pass.
+        const bool has_normals = point_set.has_normal_map();
+        CGAL::Point_set_3<Point_3> filtered_ps;
+        if (has_normals) filtered_ps.add_normal_map();
+        // Re-add pts_ins_assignment so KSR can still find external assignments.
+        auto assign_pm =
+            filtered_ps.add_property_map<int>("pts_ins_assignment", 0).first;
+
+        std::vector<int> new_assignments;
+        new_assignments.reserve(static_cast<std::size_t>(
+            std::max(cnt_pos, cnt_neg)));
+        int removed = 0;
+        int idx = 0;
+        for (auto it = point_set.begin(); it != point_set.end(); ++it, ++idx) {
+          const double d =
+              CGAL::to_double((point_set.point(*it) - f.C) * f.N);
+          const bool above = keep_pos ? (d >= 0.0) : (d < 0.0);
+          if (above) {
+            auto ni = filtered_ps.insert(point_set.point(*it));
+            if (has_normals)
+              filtered_ps.normal(*ni) = point_set.normal(*it);
+            assign_pm[*ni] = plane_assignments[idx];
+            new_assignments.push_back(plane_assignments[idx]);
+          } else {
+            ++removed;
+          }
+        }
+        std::cout << "  Removed " << removed << " below-ground points; "
+                  << filtered_ps.size() << " remaining." << std::endl;
+        point_set         = std::move(filtered_ps);
+        plane_assignments = std::move(new_assignments);
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       if (!point_set.has_normal_map()) point_set.add_normal_map();
 
       int added = 0;
@@ -314,14 +382,14 @@ int main(int argc, char **argv) {
   }
   // ─── End ground-plane detection ──────────────────────────────────────────
 
-  // std::map<typename KSR::KSP::Face_support, bool> external_nodes;
-  // // All bbox faces prefer "outside" label except YMAX (intentional for model orientation).
-  // external_nodes[KSR::KSP::Face_support::ZMIN] = true;
-  // external_nodes[KSR::KSP::Face_support::ZMAX] = false;
-  // external_nodes[KSR::KSP::Face_support::XMIN] = false;
-  // external_nodes[KSR::KSP::Face_support::XMAX] = false;
-  // external_nodes[KSR::KSP::Face_support::YMIN] = false;
-  // external_nodes[KSR::KSP::Face_support::YMAX] = false;
+  std::map<typename KSR::KSP::Face_support, bool> external_nodes;
+  // All bbox faces prefer "outside" label except YMAX (intentional for model orientation).
+  external_nodes[KSR::KSP::Face_support::ZMIN] = false;
+  external_nodes[KSR::KSP::Face_support::ZMAX] = false;
+  external_nodes[KSR::KSP::Face_support::XMIN] = false;
+  external_nodes[KSR::KSP::Face_support::XMAX] = false;
+  external_nodes[KSR::KSP::Face_support::YMIN] = false;
+  external_nodes[KSR::KSP::Face_support::YMAX] = true;
  
   auto param =CGAL::parameters::k_neighbors(8)
     .maximum_distance(0.05) // the maximum distance from a point to a plane
@@ -373,8 +441,8 @@ int main(int argc, char **argv) {
   bool save_biggest_component_only = true;
   bool non_empty = false;
 
-  ksr.reconstruct_with_ground(lambda, std::back_inserter(vtx), std::back_inserter(polylist));
-  // ksr.reconstruct(lambda, external_nodes, std::back_inserter(vtx), std::back_inserter(polylist));
+  // ksr.reconstruct_with_ground(lambda, std::back_inserter(vtx), std::back_inserter(polylist));
+  ksr.reconstruct(lambda, external_nodes, std::back_inserter(vtx), std::back_inserter(polylist));
   
   std::cout << "  => vtx=" << vtx.size() << " polylist=" << polylist.size() << std::endl;
 
@@ -452,6 +520,22 @@ int main(int argc, char **argv) {
           sub_mesh,
           sampled_cloud.point_back_inserter(),
           CGAL::parameters::number_of_points_on_faces(NUM_SAMPLES));
+
+      // Remove sampled points on the ground plane (absent from GT evaluation).
+      if (ground_lbl_out >= 0) {
+        const double dist_thresh = 0.05;  // metres from ground plane
+        CGAL::Point_set_3<Point_3> filtered;
+        int n_gnd = 0;
+        for (auto it = sampled_cloud.begin(); it != sampled_cloud.end(); ++it) {
+          const auto& p = sampled_cloud.point(*it);
+          double d = CGAL::to_double((p - ground_C_out) * ground_N_out);
+          if (std::abs(d) <= dist_thresh) { ++n_gnd; continue; }
+          filtered.insert(p);
+        }
+        std::cout << "  Ground-point filter: removed " << n_gnd
+                  << " pts  (" << filtered.size() << " kept)." << std::endl;
+        sampled_cloud = std::move(filtered);
+      }
 
       fs::path sample_outp = outdir / "final_sampled.ply";
       std::ofstream sample_ofs(sample_outp.string());
