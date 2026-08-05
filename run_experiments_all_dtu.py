@@ -27,7 +27,7 @@ if __name__ == "__main__":
     set_hf_token_from_txt(token_path)
 
     ## SAM3
-    sam_inference_all_scenes(BD_SCENES)
+    # sam_inference_all_scenes(BD_SCENES)
 
     ## DA3
     # da3_inference_all_scenes(BD_SCENES)
@@ -37,16 +37,17 @@ if __name__ == "__main__":
         run_adaptivePS(
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
-            out_path="AdaptivePS/DTU-Building",
-            conf_path="configs/APS-DTU.conf",
-            mask="bldg_masks"
+            out_path="AdaptivePS-sparse/DTU-Building",
+            conf_path="configs/APS-DTU-sparse.conf",
+            mask="bldg_masks",
+            runtime_log_path="evaluation/runtime_logs_dtu_sparse/aps_sparse.json"
         )
 
-    ## Baseline PlanarSplatting
-    for scene in BD_SCENES:
-        run_baseline(
-            data_path=scene['data_path'],
-            exp_name=scene['exp_name'],
-            out_path="Baseline/DTU-Building",
-            conf_path="configs/baseline-DTU.conf",
-        )
+    # ## Baseline PlanarSplatting
+    # for scene in BD_SCENES:
+    #     run_baseline(
+    #         data_path=scene['data_path'],
+    #         exp_name=scene['exp_name'],
+    #         out_path="Baseline/DTU-Building",
+    #         conf_path="configs/baseline-DTU.conf",
+    #     )
