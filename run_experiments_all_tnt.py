@@ -11,8 +11,8 @@ MY_STORAGE = "/tudelft.net/staff-umbrella/Deep3D/mingchiehhu"
 SCENES = [
     # TnT Datasets
     {
-        "exp_name": "Barn_sparse_warmup",
-        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse25",
+        "exp_name": "Barn-sparse_warmup",
+        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn-sparse25",
         "bldg_prompt": "The building",
         "bldg_mask_mode": "biggest",
         "gnd_prompt": ["ground", "grass", "pavement"],
@@ -20,8 +20,8 @@ SCENES = [
         "max_depth": 200,
     },
     # {
-    #     "exp_name": "Barn_sparse25",
-    #     "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse25",
+    #     "exp_name": "Barn-sparse25",
+    #     "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn-sparse25",
     #     "bldg_prompt": "The building",
     #     "bldg_mask_mode": "biggest",
     #     "gnd_prompt": ["ground", "grass", "pavement"],
@@ -29,8 +29,8 @@ SCENES = [
     #     "max_depth": 200,
     # },
     # {
-    #     "exp_name": "Barn_sparse50",
-    #     "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse50",
+    #     "exp_name": "Barn-sparse50",
+    #     "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn-sparse50",
     #     "bldg_prompt": "The building",
     #     "bldg_mask_mode": "biggest",
     #     "gnd_prompt": ["ground", "grass", "pavement"],
@@ -38,8 +38,8 @@ SCENES = [
     #     "max_depth": 200,
     # },
     # {
-    #     "exp_name": "Barn_sparse100",
-    #     "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse100",
+    #     "exp_name": "Barn-sparse100",
+    #     "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn-sparse100",
     #     "bldg_prompt": "The building",
     #     "bldg_mask_mode": "biggest",
     #     "gnd_prompt": ["ground", "grass", "pavement"],
@@ -47,8 +47,8 @@ SCENES = [
     #     "max_depth": 200,
     # },
     # {
-    #     "exp_name": "Barn_sparse200",
-    #     "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse200",
+    #     "exp_name": "Barn-sparse200",
+    #     "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn-sparse200",
     #     "bldg_prompt": "The building",
     #     "bldg_mask_mode": "biggest",
     #     "gnd_prompt": ["ground", "grass", "pavement"],
@@ -56,8 +56,8 @@ SCENES = [
     #     "max_depth": 200,
     # },
     # {
-    #     "exp_name": "Barn_sparse400",
-    #     "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse400",
+    #     "exp_name": "Barn-sparse400",
+    #     "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn-sparse400",
     #     "bldg_prompt": "The building",
     #     "bldg_mask_mode": "biggest",
     #     "gnd_prompt": ["ground", "grass", "pavement"],
@@ -65,8 +65,8 @@ SCENES = [
     #     "max_depth": 200,
     # },
     {
-        "exp_name": "Barn_sparse410",
-        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn_sparse410",
+        "exp_name": "Barn-sparse410",
+        "data_path": f"{MY_STORAGE}/TNT_GOF/TrainingSet/Barn-sparse410",
         "bldg_prompt": "The building",
         "bldg_mask_mode": "biggest",
         "gnd_prompt": ["ground", "grass", "pavement"],
