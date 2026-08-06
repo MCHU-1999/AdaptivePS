@@ -17,10 +17,11 @@ from pathlib import Path
 # ── Config ────────────────────────────────────────────────────────────────────
 SRC_DIR  = Path("/Users/mchu/Documents/TUD/Thesis/TNT_GOF/TrainingSet/Barn")
 DST_BASE = Path("/Users/mchu/Documents/TUD/Thesis/TNT_GOF/TrainingSet")
-COUNTS   = [25, 50, 100, 200, 400]
+# COUNTS   = [25, 50, 100, 200, 400]
+COUNTS   = [410]
 
 # Evaluation GT files that need to live alongside the reconstruction
-EVAL_COPY = ["Barn.ply", "Barn.json", "Barn_trans.txt"]
+EVAL_COPY = ["Barn.json", "Barn_trans.txt"]
 # ──────────────────────────────────────────────────────────────────────────────
 
 
