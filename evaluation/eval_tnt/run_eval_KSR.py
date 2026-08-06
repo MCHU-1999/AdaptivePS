@@ -1,0 +1,238 @@
+# ----------------------------------------------------------------------------
+# -                   TanksAndTemples Website Toolbox                        -
+# -                    http://www.tanksandtemples.org                        -
+# ----------------------------------------------------------------------------
+# The MIT License (MIT)
+#
+# Copyright (c) 2017
+# Arno Knapitsch <arno.knapitsch@gmail.com >
+# Jaesik Park <syncle@gmail.com>
+# Qian-Yi Zhou <Qianyi.Zhou@gmail.com>
+# Vladlen Koltun <vkoltun@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+# ----------------------------------------------------------------------------
+#
+# This python script is for downloading dataset from www.tanksandtemples.org
+# The dataset has a different license, please refer to
+# https://tanksandtemples.org/license/
+
+# this script requires Open3D python binding
+# please follow the intructions in setup.py before running this script.
+import numpy as np
+import open3d as o3d
+import os
+import argparse
+import csv
+from config import scenes_tau_dict
+from registration import (
+    trajectory_alignment,
+    registration_vol_ds,
+    registration_unif,
+    read_trajectory,
+)
+from evaluation import EvaluateHisto, compute_chamfer
+from util import make_dir
+from plot import plot_graph
+from convert_to_logfile import convert_COLMAP_to_log
+
+
+def run_evaluation(dataset_dir, traj_path, ply_path, out_dir, colmap_ref_logfile=None):
+    scene = os.path.basename(os.path.normpath(dataset_dir))
+
+    if scene not in scenes_tau_dict:
+        print(dataset_dir, scene)
+        raise Exception("invalid dataset-dir, not in scenes_tau_dict")
+
+    print("")
+    print("===========================")
+    print("Evaluating %s" % scene)
+    print("===========================")
+
+    dTau = scenes_tau_dict[scene]
+    # put the crop-file, the GT file, the COLMAP SfM log file and
+    # the alignment of the according scene in a folder of
+    # the same scene name in the dataset_dir
+    # COLMAP SfM reference: can be overridden for sparse subsets
+    if colmap_ref_logfile is None:
+        colmap_ref_logfile = os.path.join(dataset_dir, scene + "_COLMAP_SfM.log")
+
+    # this is for groundtruth pointcloud, we can use it
+    alignment = os.path.join(dataset_dir, scene + "_trans.txt")
+    gt_filen = os.path.join(dataset_dir, scene + ".ply")
+    # this crop file is also w.r.t the groundtruth pointcloud, we can use it. 
+    # Otherwise we have to crop the estimated pointcloud by ourself
+    cropfile = os.path.join(dataset_dir, scene + ".json")
+    # this is not so necessary
+    map_file = os.path.join(dataset_dir, scene + "_mapping_reference.txt")
+    if not os.path.isfile(map_file):
+        map_file = None
+    map_file = None
+
+    make_dir(out_dir)
+
+    # Load reconstruction and according GT
+    print(ply_path)
+    pcd = o3d.io.read_point_cloud(ply_path)
+    # mesh = o3d.io.read_triangle_mesh(ply_path)
+    # mesh.remove_unreferenced_vertices()
+    # pcd = mesh.sample_points_uniformly(number_of_points=1000000)
+    print(gt_filen)
+    gt_pcd = o3d.io.read_point_cloud(gt_filen)
+
+    gt_trans = np.loadtxt(alignment)
+    traj_to_register = read_trajectory(traj_path)
+    gt_traj_col = read_trajectory(colmap_ref_logfile)
+
+    trajectory_transform = trajectory_alignment(map_file, traj_to_register,
+                                                gt_traj_col, gt_trans, scene)
+
+    # Refine alignment by using the actual GT and MVS pointclouds
+    vol = o3d.visualization.read_selection_polygon_volume(cropfile)
+    # big pointclouds will be downlsampled to this number to speed up alignment
+    dist_threshold = dTau
+
+    # Registration refinment in 3 iterations
+    r2 = registration_vol_ds(pcd, gt_pcd, trajectory_transform, vol, dTau,
+                             dTau * 80, 20)
+    r3 = registration_vol_ds(pcd, gt_pcd, r2.transformation, vol, dTau / 2.0,
+                             dTau * 20, 20)
+    r = registration_unif(pcd, gt_pcd, r3.transformation, vol, 2 * dTau, 20)
+    # Histogramms and P/R/F1
+    plot_stretch = 5
+    [
+        precision,
+        recall,
+        fscore,
+        edges_source,
+        cum_source,
+        edges_target,
+        cum_target,
+    ] = EvaluateHisto(
+        pcd,
+        gt_pcd,
+        r.transformation,
+        vol,
+        dTau / 2.0,
+        dTau,
+        out_dir,
+        plot_stretch,
+        scene,
+    )
+    eva = [precision, recall, fscore]
+    print("==============================")
+    print("evaluation result : %s" % scene)
+    print("==============================")
+    print("distance tau : %.3f" % dTau)
+    print("precision : %.4f" % eva[0])
+    print("recall : %.4f" % eva[1])
+    print("f-score : %.4f" % eva[2])
+    print("==============================")
+
+    # Plotting
+    plot_graph(
+        scene,
+        fscore,
+        dist_threshold,
+        edges_source,
+        cum_source,
+        edges_target,
+        cum_target,
+        plot_stretch,
+        out_dir,
+    )
+
+
+if __name__ == "__main__":
+    import glob, re
+
+    BASE          = "/Users/mchu/Documents/TUD/Thesis"
+    DATASET_DIR   = f"{BASE}/TNT_GOF/TrainingSet/Barn"   # GT files always from full Barn
+    SPARSE_ROOT   = f"{BASE}/TNT_GOF/TrainingSet"        # Barn_sparse{N}/ dirs live here
+    APS_ROOT      = f"{BASE}/PlanarSplatting/AdaptivePS-sparse"
+
+    SCENE_DIRS = sorted(glob.glob(f"{APS_ROOT}/Barn_sparse*_APS"))
+
+    for scene_dir in SCENE_DIRS:
+        # Extract sparse count from dir name, e.g. Barn_sparse25_APS → 25
+        m = re.search(r'Barn_sparse(\d+)_APS', os.path.basename(scene_dir))
+        if not m:
+            print(f"[SKIP] Cannot parse count from {scene_dir}")
+            continue
+        sparse_count = m.group(1)
+
+        # Each scene has exactly one timestamped run subfolder — pick the latest
+        run_folders = sorted(glob.glob(f"{scene_dir}/*/"))
+        if not run_folders:
+            print(f"[SKIP] No run folder found in {scene_dir}")
+            continue
+        run_folder = run_folders[-1].rstrip("/")
+
+        ply_path           = f"{run_folder}/ksr_output/final_sampled.ply"
+        traj_path          = f"{run_folder}/DA3.log"
+        out_dir            = f"{run_folder}/eval_KSR"
+        colmap_ref_logfile = f"{SPARSE_ROOT}/Barn_sparse{sparse_count}/Barn_COLMAP_SfM.log"
+
+        scene_name = os.path.basename(scene_dir)
+        print(f"\n{'='*60}")
+        print(f"  Scene : {scene_name}  (sparse {sparse_count})")
+        print(f"  Run   : {os.path.basename(run_folder)}")
+        print(f"  PLY   : {ply_path}")
+        print(f"  Traj  : {traj_path}")
+        print(f"  SfM   : {colmap_ref_logfile}")
+        print(f"  Out   : {out_dir}")
+        print(f"{'='*60}")
+
+        if not os.path.exists(ply_path):
+            print(f"[SKIP] PLY not found: {ply_path}")
+            continue
+
+        # Generate DA3.log from the sparse COLMAP binary files if it doesn't
+        # already exist (or regenerate to ensure it's up-to-date).
+        colmap_dir = f"{SPARSE_ROOT}/Barn_sparse{sparse_count}/DA3_colmap"
+        images_dir = f"{SPARSE_ROOT}/Barn_sparse{sparse_count}/images"
+        if os.path.isdir(colmap_dir):
+            try:
+                convert_COLMAP_to_log(
+                    colmap_dir + "/",   # dirname() strips trailing / → the dir itself
+                    traj_path,
+                    images_dir,
+                    "jpg",
+                )
+                print(f"  Generated trajectory: {traj_path}")
+            except Exception as e:
+                print(f"  [WARN] convert_COLMAP_to_log failed: {e}")
+        else:
+            print(f"  [WARN] DA3_colmap dir not found: {colmap_dir}")
+
+        if not os.path.exists(traj_path):
+            print(f"[SKIP] Trajectory not found (and could not be generated): {traj_path}")
+            continue
+        if not os.path.exists(colmap_ref_logfile):
+            print(f"[SKIP] COLMAP SfM log not found: {colmap_ref_logfile}")
+            print(f"       Run prepare_sparse_barn.py first.")
+            continue
+
+        run_evaluation(
+            dataset_dir=DATASET_DIR,
+            traj_path=traj_path,
+            ply_path=ply_path,
+            out_dir=out_dir,
+            colmap_ref_logfile=colmap_ref_logfile,
+        )

@@ -184,9 +184,9 @@ if __name__ == "__main__":
             continue
         run_folder = run_folders[-1].rstrip("/")
 
-        ply_path           = f"{run_folder}/ksr_output/final_sampled.ply"
+        ply_path           = f"{run_folder}/planar_mesh_for_KSR.ply"
         traj_path          = f"{run_folder}/DA3.log"
-        out_dir            = f"{run_folder}/eval_tnt"
+        out_dir            = f"{run_folder}/eval_APS"
         colmap_ref_logfile = f"{SPARSE_ROOT}/Barn_sparse{sparse_count}/Barn_COLMAP_SfM.log"
 
         scene_name = os.path.basename(scene_dir)
