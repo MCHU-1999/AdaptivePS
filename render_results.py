@@ -284,8 +284,8 @@ OUTPUT_DIR      = "AdaptivePS-sparse"      # rendered_rgb/{scan} and rendered_dn
 
 
 if __name__ == "__main__":
-    # INDICES = [0, 25, 45, 75, 100, 125, 150]
-    INDICES = [i for i in range(0, 400, 25)]
+    INDICES = [24, 29, 54, 284, 309, 359, 409]
+    # INDICES = [i for i in range(0, 400, 25)]
     # INDICES = [41]
     render_all(RESULTS_DIR, out_dir=OUTPUT_DIR, indices=INDICES)
     # render_all(RESULTS_DIR, out_dir=OUTPUT_DIR)
