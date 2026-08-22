@@ -96,7 +96,7 @@ if __name__ == "__main__":
         run_adaptivePS(
             data_path=scene['data_path'],
             exp_name=scene['exp_name'],
-            out_path="AdaptivePS-sparse",
+            out_path="AdaptivePS-sparse-aligned",
             conf_path="configs/APS-big-sparse.conf",
             mask="bldg_masks",
             runtime_log_path="evaluation/runtime_logs_tnt/sparse.json"
