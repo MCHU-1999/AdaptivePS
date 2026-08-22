@@ -164,14 +164,14 @@ if __name__ == "__main__":
 
     BASE          = "/Users/mchu/Documents/TUD/Thesis"
     DATASET_DIR   = f"{BASE}/TNT_GOF/TrainingSet/Barn"   # GT files always from full Barn
-    SPARSE_ROOT   = f"{BASE}/TNT_GOF/TrainingSet"        # Barn_sparse{N}/ dirs live here
+    SPARSE_ROOT   = f"{BASE}/TNT_GOF/TrainingSet"        # Barn-sparse{N}/ dirs live here
     APS_ROOT      = f"{BASE}/PlanarSplatting/AdaptivePS-sparse"
 
-    SCENE_DIRS = sorted(glob.glob(f"{APS_ROOT}/Barn_sparse*_APS"))
+    SCENE_DIRS = sorted(glob.glob(f"{APS_ROOT}/Barn-sparse*_APS"))
 
     for scene_dir in SCENE_DIRS:
-        # Extract sparse count from dir name, e.g. Barn_sparse25_APS → 25
-        m = re.search(r'Barn_sparse(\d+)_APS', os.path.basename(scene_dir))
+        # Extract sparse count from dir name, e.g. Barn-sparse25_APS → 25
+        m = re.search(r'Barn-sparse(\d+)_APS', os.path.basename(scene_dir))
         if not m:
             print(f"[SKIP] Cannot parse count from {scene_dir}")
             continue
@@ -187,7 +187,7 @@ if __name__ == "__main__":
         ply_path           = f"{run_folder}/ksr_output/final_sampled.ply"
         traj_path          = f"{run_folder}/DA3.log"
         out_dir            = f"{run_folder}/eval_KSR"
-        colmap_ref_logfile = f"{SPARSE_ROOT}/Barn_sparse{sparse_count}/Barn_COLMAP_SfM.log"
+        colmap_ref_logfile = f"{SPARSE_ROOT}/Barn-sparse{sparse_count}/Barn_COLMAP_SfM.log"
 
         scene_name = os.path.basename(scene_dir)
         print(f"\n{'='*60}")
@@ -205,8 +205,8 @@ if __name__ == "__main__":
 
         # Generate DA3.log from the sparse COLMAP binary files if it doesn't
         # already exist (or regenerate to ensure it's up-to-date).
-        colmap_dir = f"{SPARSE_ROOT}/Barn_sparse{sparse_count}/DA3_colmap"
-        images_dir = f"{SPARSE_ROOT}/Barn_sparse{sparse_count}/images"
+        colmap_dir = f"{SPARSE_ROOT}/Barn-sparse{sparse_count}/DA3_colmap"
+        images_dir = f"{SPARSE_ROOT}/Barn-sparse{sparse_count}/images"
         if os.path.isdir(colmap_dir):
             try:
                 convert_COLMAP_to_log(

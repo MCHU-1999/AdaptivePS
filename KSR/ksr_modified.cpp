@@ -160,7 +160,8 @@ int main(int argc, char **argv) {
   // Set to false to skip ground-cap synthesis entirely.
   const bool kEnableGroundCap = true;
   if (kEnableGroundCap && has_assignment) {
-    const double kGridStep = 0.02;
+    // const double kGridStep = 0.02;
+    const double kGridStep = 0.05;
 
     // ── Helper: orthonormal tangent frame (U,V) for a unit normal N ────────
     auto make_tangent_frame = [](Vector_3 N, Vector_3 &U, Vector_3 &V) {
@@ -441,8 +442,8 @@ int main(int argc, char **argv) {
   bool save_biggest_component_only = true;
   bool non_empty = false;
 
-  // ksr.reconstruct_with_ground(lambda, std::back_inserter(vtx), std::back_inserter(polylist));
-  ksr.reconstruct(lambda, external_nodes, std::back_inserter(vtx), std::back_inserter(polylist));
+  ksr.reconstruct_with_ground(lambda, std::back_inserter(vtx), std::back_inserter(polylist));
+  // ksr.reconstruct(lambda, external_nodes, std::back_inserter(vtx), std::back_inserter(polylist));
   
   std::cout << "  => vtx=" << vtx.size() << " polylist=" << polylist.size() << std::endl;
 

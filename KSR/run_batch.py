@@ -12,7 +12,7 @@ from pathlib import Path
 # ── Config ────────────────────────────────────────────────────────────────────
 REPO_ROOT   = Path(__file__).resolve().parent.parent          # PlanarSplatting/
 BINARY      = REPO_ROOT / "KSR" / "build" / "ksr_modified"
-SEARCH_ROOT = REPO_ROOT / "AdaptivePS-sparse"
+SEARCH_ROOT = REPO_ROOT / "AdaptivePS-sparse-big"
 PLY_NAME    = "planar_mesh_for_KSR.ply"
 OUTPUT_DIR  = "ksr_output"
 # ──────────────────────────────────────────────────────────────────────────────
