@@ -28,15 +28,15 @@ def read_colmap_dataset(data_dir):
     if not os.path.exists(image_dir):
         raise ValueError(f'The input path {image_dir} does not exist.')
 
-    colmap_cam_file_path = os.path.join(data_dir, 'sparse/0/cameras.bin')
+    colmap_cam_file_path = os.path.join(data_dir, 'sparse_gt/0/cameras.bin')
     if not os.path.exists(colmap_cam_file_path):
-        colmap_cam_file_path = os.path.join(data_dir, 'sparse/0/cameras.txt')
+        colmap_cam_file_path = os.path.join(data_dir, 'sparse_gt/0/cameras.txt')
         if not os.path.exists(colmap_cam_file_path):
             raise ValueError(f'The input path {colmap_cam_file_path} does not exist.')
     
-    colmap_image_file_path = os.path.join(data_dir, 'sparse/0/images.bin')
+    colmap_image_file_path = os.path.join(data_dir, 'sparse_gt/0/images.bin')
     if not os.path.exists(colmap_image_file_path):
-        colmap_image_file_path = os.path.join(data_dir, 'sparse/0/images.txt')
+        colmap_image_file_path = os.path.join(data_dir, 'sparse_gt/0/images.txt')
         if not os.path.exists(colmap_image_file_path):
             raise ValueError(f'The input path {colmap_image_file_path} does not exist.')
     
